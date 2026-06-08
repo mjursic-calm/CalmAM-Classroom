@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="theme-color" content="#1a3a4a" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="CalmAM Classroom" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>CalmAM Classroom</title>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #0f2030; min-height: 100vh; font-family: 'DM Sans', sans-serif; color: #e8e0d4; overflow-x: hidden; }
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: #0f2030; }
+::-webkit-scrollbar-thumb { background: #2a5a7a; border-radius: 2px; }
+button:focus { outline: none; }
+textarea:focus { outline: none; }
+input:focus { outline: none; }
+.overlay-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 100; display: flex; align-items: flex-end; justify-content: center; padding: 0; }
+.strategy-card { background: #1a2f3f; border-radius: 20px 20px 0 0; width: 100%; max-width: 600px; padding: 24px 20px 36px; border-top: 3px solid #4a9abf; max-height: 88vh; overflow-y: auto; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+
+const { useState, useEffect, useRef } = React;
+
+const STORAGE_KEY = "calmam-classroom-v2";
+function load() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch { return {}; } }
+function save(d) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); } catch {} }
+
+// ── COLOURS ───────────────────────────────────────────────────────────────────
+const SEV_COLOR  = ["","#4a9a6a","#8ab84a","#e0c84a","#e0883a","#c03030"];
+const SEV_LABEL  = ["","Minimal","Mild","Moderate","Significant","Severe"];
+
+// Consequence tiers
+const C_GREEN  = "#4a9a6a";  // prosocial / de-escalating
+const C_AMBER  = "#e0c84a";  // ambiguous / context-dependent
+const C_RED    = "#c03030";  // maintains or escalates cycle
+
+// ── DATA ──────────────────────────────────────────────────────────────────────
+const ANTECEDENTS = [
+  { id:"academic",      label:"Academic Demand",    desc:"Difficult work, reading aloud" },
+  { id:"environmental", label:"Environment",         desc:"Noise, transition, chaos" },
+  { id:"social",        label:"Social Interaction",  desc:"Peer conflict, ignored" },
+  { id:"physiological", label:"Physiological",       desc:"Fatigue, hunger, unwell" },
+  { id:"clarity",       label:"Lack of Clarity",     desc:"Vague instructions, unclear expectations" },
+];
+
+const TEACHER_CONSEQUENCES = [
+  { id:"praise",      label:"Positive Reinforcement", desc:"Praise, sticker, free time",            tier:"green" },
+  { id:"negremove",   label:"Negative Reinforcement",  desc:"Removed aversive stimulus",             tier:"amber" },
+  { id:"ignore",      label:"Planned Ignoring",        desc:"Withheld attention deliberately",       tier:"green" },
+  { id:"privilege",   label:"Loss of Privilege",       desc:"Recess, free time removed",             tier:"amber" },
+  { id:"restitution", label:"Restitution",             desc:"Clean up, apologize",                   tier:"green" },
+];
+
+const STUDENT_CONSEQUENCES = [
+  { id:"peerlaughs",    label:"Peer Laughs",          desc:"Classmates laughed, approved",           tier:"red"   },
+  { id:"status",        label:"Social Status",         desc:"Nods, high-fives at others' expense",   tier:"red"   },
+  { id:"prosocial",     label:"Prosocial Approval",    desc:"Genuine peer respect earned",            tier:"green" },
+  { id:"rejection",     label:"Peer Rejection",        desc:"Snickering, eye rolls, exclusion",      tier:"red"   },
+  { id:"isolation",     label:"Peer Isolation",        desc:"Others moved away, refused to partner", tier:"red"   },
+  { id:"anxietyrelief", label:"Anxiety Relief",        desc:"Escaped task, stress reduced",          tier:"amber" },
+  { id:"control",       label:"Sense of Control",      desc:"Broke rule to feel powerful",           tier:"red"   },
+  { id:"shame",         label:"Shame / Emptiness",     desc:"Ignored, invisible, unacknowledged",    tier:"amber" },
+  { id:"inclusion",     label:"Inclusion",             desc:"Invited in, accepted by peers",         tier:"green" },
+];
+
+function tierColor(tier) {
+  if (tier === "green") return C_GREEN;
+  if (tier === "red")   return C_RED;
+  return C_AMBER;
+}
+
+// ── QUICK BEHAVIOURS + STRATEGIES ─────────────────────────────────────────────
+const QUICK_BEHAVIOURS = [
+  {
+    id: "disruptive",
+    label: "Disruptive",
+    icon: "📢",
+    desc: "Blurting, talking out, throwing",
+    color: "#e0883a",
+    strategies: [
+      {
+        name: "Remove the Audience",
+        text: "Avoid public power struggles. Don't argue or lecture in front of the class.",
+        scripts: [
+          { text: "I hear you. Come talk to me after class.", note: "Neutral, no audience" },
+          { text: "Step into the hall for a moment — I'll be right there.", note: "Removes the stage" },
+        ],
+        nonverbal: "Step close, neutral face, slight head tilt toward the door. Do not raise your voice.",
+      },
+      {
+        name: "Group Contingency",
+        text: "Tie a class reward to everyone's behaviour — including theirs.",
+        scripts: [
+          { text: "If we all transition quietly in the next two minutes, everyone gets five minutes of free talk time.", note: "Shifts peer pressure to prosocial" },
+        ],
+        nonverbal: "Scan the whole room slowly, not just the disruptive student. Signal calm with open hands.",
+      },
+    ],
+  },
+  {
+    id: "offtask",
+    label: "Off-Task",
+    icon: "💭",
+    desc: "Daydreaming, doodling, disengaged",
+    color: "#e0c84a",
+    strategies: [
+      {
+        name: "Proactive Positive Status",
+        text: "Give attention-seeking students a legitimate, positive way to earn peer attention.",
+        scripts: [
+          { text: "I need your eyes on this — you're going to want to see it.", note: "Curiosity hook, no shame" },
+          { text: "Can you be the one to read this part out loud?", note: "Gives a role, not a reprimand" },
+        ],
+        nonverbal: "Move toward the student while continuing to teach. Proximity without confrontation.",
+      },
+      {
+        name: "Proximity Redirect",
+        text: "Physical presence alone redirects most off-task behaviour without a word.",
+        scripts: [
+          { text: "(No words — stand near their desk for 10–15 seconds, then move on.)", note: "Silent, non-shaming" },
+        ],
+        nonverbal: "Stand beside or behind the student. Continue addressing the class. Don't look directly at them.",
+      },
+    ],
+  },
+  {
+    id: "avoidance",
+    label: "Avoidance",
+    icon: "🫥",
+    desc: "Refusing, head down, hiding materials",
+    color: "#7ab8e0",
+    strategies: [
+      {
+        name: "Legitimate Escape Hatch",
+        text: "Offer a real choice that preserves dignity and de-escalates without rewarding avoidance.",
+        scripts: [
+          { text: "You can take a two-minute breather at the water fountain, or get back to work right now. What do you need?", note: "Choice preserves autonomy" },
+          { text: "You don't have to share with the class. Just write it for yourself first.", note: "Lowers the social stakes" },
+        ],
+        nonverbal: "Crouch to eye level. Open palms. Avoid prolonged direct eye contact. Soft voice.",
+      },
+      {
+        name: "Safe Failure Zone",
+        text: "Remove the social penalty from making academic mistakes.",
+        scripts: [
+          { text: "Thank you for that — that's actually one of the most common misconceptions. You just helped everyone.", note: "Reframes error as contribution" },
+          { text: "Show me on your whiteboard — everyone at the same time.", note: "Simultaneous response removes exposure" },
+        ],
+        nonverbal: "Warm, genuine smile. Slow deliberate nod. Address the whole class, not just the student.",
+      },
+    ],
+  },
+  {
+    id: "positive",
+    label: "Engaging",
+    icon: "✋",
+    desc: "Hand up, participating, helping",
+    color: "#4a9a6a",
+    strategies: [
+      {
+        name: "Reinforce Immediately",
+        text: "Public, specific reinforcement anchors the behaviour and signals to the class what earns status here.",
+        scripts: [
+          { text: "That's exactly what I'm talking about. Thank you.", note: "Specific, immediate, public" },
+          { text: "That question is going to save someone in this room a lot of confusion later.", note: "Elevates the student's status prosocially" },
+        ],
+        nonverbal: "Direct eye contact, genuine nod, pause to let the moment land. Don't rush past it.",
+      },
+    ],
+  },
+  {
+    id: "aggression",
+    label: "Aggression",
+    icon: "⚡",
+    desc: "Pushing, shoving, physical outburst",
+    color: "#c03030",
+    strategies: [
+      {
+        name: "Remove the Audience — Immediately",
+        text: "Redirect the class first. Never engage in a public power struggle during physical aggression.",
+        scripts: [
+          { text: "Everyone — eyes on your own work right now.", note: "To the class — calm, flat voice" },
+          { text: "Let's step outside right now. Just you and me.", note: "To the student — no ultimatum, no audience" },
+        ],
+        nonverbal: "Create physical space. Hands visible and open at your sides. Move slowly. No touch unless safety requires it. Calm, slow breathing — your body regulates the room.",
+      },
+      {
+        name: "De-escalation Hold",
+        text: "Your regulated state is the intervention. Do not match their energy.",
+        scripts: [
+          { text: "I'm not going to argue with you. I want to help you. Let's talk when you're ready.", note: "Removes the audience from the dynamic" },
+          { text: "(Silence. Wait. Give them 30 seconds.)", note: "Wait time is the strategy" },
+        ],
+        nonverbal: "Stand at an angle — not face-to-face. Lower your body slightly. Soft eyes. No pointing. No raised hands.",
+      },
+    ],
+  },
+];
+
+function formatDate(iso) {
+  return new Date(iso).toLocaleString("en-CA", { month:"short", day:"numeric", hour:"2-digit", minute:"2-digit", weekday:"short" });
+}
+function formatShort(iso) {
+  return new Date(iso).toLocaleString("en-CA", { month:"short", day:"numeric", hour:"2-digit", minute:"2-digit" });
+}
+
+// ── STRATEGY OVERLAY ──────────────────────────────────────────────────────────
+function StrategyOverlay({ behaviour, onClose }) {
+  const beh = QUICK_BEHAVIOURS.find(b => b.id === behaviour);
+  if (!beh) return null;
+  return (
+    <div className="overlay-bg" onClick={onClose}>
+      <div className="strategy-card" onClick={e => e.stopPropagation()}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+            <span style={{ fontSize:24 }}>{beh.icon}</span>
+            <div>
+              <div style={{ fontSize:18, fontFamily:"'Libre Baskerville',serif", color: beh.color }}>{beh.label}</div>
+              <div style={{ fontSize:11, color:"#4a7a9a", fontStyle:"italic" }}>{beh.desc}</div>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background:"none", border:"1px solid #2a4a5a", color:"#4a7a9a", borderRadius:8, padding:"6px 12px", cursor:"pointer", fontSize:13 }}>✕ Done</button>
+        </div>
+
+        {beh.strategies.map((strat, si) => (
+          <div key={si} style={{ marginBottom:20, background:"#0f2030", borderRadius:12, overflow:"hidden", border:"1px solid #2a4a5a" }}>
+            <div style={{ background:`${beh.color}18`, borderBottom:`2px solid ${beh.color}44`, padding:"10px 14px" }}>
+              <div style={{ fontSize:13, fontWeight:700, color: beh.color, letterSpacing:"0.03em" }}>{strat.name}</div>
+              <div style={{ fontSize:12, color:"#8ab0c0", marginTop:3, fontStyle:"italic" }}>{strat.text}</div>
+            </div>
+            <div style={{ padding:"12px 14px" }}>
+              <div style={{ fontSize:11, color:"#4a7a9a", fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:8 }}>Scripts</div>
+              {strat.scripts.map((sc, i) => (
+                <div key={i} style={{ marginBottom:10, paddingLeft:10, borderLeft:`3px solid ${beh.color}66` }}>
+                  <div style={{ fontSize:14, color:"#e8e0d4", fontFamily:"'Libre Baskerville',serif", lineHeight:1.5, marginBottom:3 }}>"{sc.text}"</div>
+                  <div style={{ fontSize:11, color:"#4a7a9a", fontStyle:"italic" }}>{sc.note}</div>
+                </div>
+              ))}
+              <div style={{ marginTop:12, background:"#1a2f3f", borderRadius:8, padding:"10px 12px", border:"1px solid #2a5a6a" }}>
+                <div style={{ fontSize:11, color:"#4a9abf", fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:4 }}>Non-Verbal</div>
+                <div style={{ fontSize:13, color:"#8ab8c8", lineHeight:1.6 }}>{strat.nonverbal}</div>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        <div style={{ textAlign:"center", marginTop:8 }}>
+          <div style={{ fontSize:11, color:"#2a5a6a", fontStyle:"italic" }}>Incident logged automatically</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── STRATEGIES REFERENCE (collapsible) ───────────────────────────────────────
+function StrategiesStrip() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ background:"#0f2030", border:"1px solid #2a4a5a", borderRadius:12, marginBottom:14, overflow:"hidden" }}>
+      <button onClick={() => setOpen(o => !o)} style={{
+        width:"100%", padding:"12px 16px", background:"none", border:"none",
+        color:"#4a9abf", cursor:"pointer", display:"flex", justifyContent:"space-between",
+        alignItems:"center", fontSize:13, fontWeight:600, letterSpacing:"0.06em"
+      }}>
+        <span>📚 STRATEGIES REFERENCE</span>
+        <span style={{ fontSize:11, color:"#2a6a7a" }}>{open ? "▲ collapse" : "▼ expand"}</span>
+      </button>
+      {open && (
+        <div style={{ padding:"0 14px 14px", borderTop:"1px solid #1a3a4a" }}>
+          {QUICK_BEHAVIOURS.map(beh => (
+            <div key={beh.id} style={{ marginTop:14 }}>
+              <div style={{ fontSize:12, color: beh.color, fontWeight:700, marginBottom:8 }}>
+                {beh.icon} {beh.label}
+              </div>
+              {beh.strategies.map((s, i) => (
+                <div key={i} style={{ marginBottom:10, paddingLeft:10, borderLeft:`2px solid ${beh.color}44` }}>
+                  <div style={{ fontSize:12, fontWeight:600, color:"#c0d8e8", marginBottom:2 }}>{s.name}</div>
+                  <div style={{ fontSize:11, color:"#6a8a9a", fontStyle:"italic", marginBottom:4 }}>{s.text}</div>
+                  {s.scripts.map((sc, j) => (
+                    <div key={j} style={{ fontSize:12, color:"#8ab0c0", marginBottom:2 }}>› "{sc.text}"</div>
+                  ))}
+                  <div style={{ fontSize:11, color:"#4a6a7a", marginTop:4 }}>👁 {s.nonverbal}</div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── ABC DETAIL SCREEN ─────────────────────────────────────────────────────────
+function ABCDetail({ student, prefillBehaviour, onSave, onBack }) {
+  const [antecedent, setAntecedent] = useState("");
+  const [behaviour, setBehaviour]   = useState(prefillBehaviour || "");
+  const [teacherC,  setTeacherC]    = useState("");
+  const [studentC,  setStudentC]    = useState("");
+  const [severity,  setSeverity]    = useState(0);
+  const [saved, setSaved]           = useState(false);
+  const ts = useRef(new Date().toISOString());
+
+  const canSave = severity > 0;
+
+  function handleSave() {
+    onSave({ id:Date.now(), timestamp:ts.current, antecedent, behaviour, teacherC, studentC, severity, notes:"" });
+    setSaved(true);
+    setTimeout(() => onBack(), 700);
+  }
+
+  function ConseqBtn({ item, selected, onTap }) {
+    const color = tierColor(item.tier);
+    return (
+      <button onClick={() => onTap(item.id)} style={{
+        padding:"8px 10px", borderRadius:8, textAlign:"left",
+        border: selected ? `2px solid ${color}` : "1.5px solid #2a4a5a",
+        background: selected ? `${color}20` : "#0f2030",
+        color: selected ? color : "#5a8a9a",
+        cursor:"pointer", transition:"all 0.15s", marginBottom:6, width:"100%"
+      }}>
+        <div style={{ fontSize:12, fontWeight:600 }}>{item.label}</div>
+        <div style={{ fontSize:10, opacity:0.75, marginTop:1, fontStyle:"italic" }}>{item.desc}</div>
+      </button>
+    );
+  }
+
+  return (
+    <div style={{ minHeight:"100vh", background:"#0f2030" }}>
+      <div style={{ background:"linear-gradient(135deg,#1a3a4a,#0f2a3a)", padding:"14px 16px", borderBottom:"1px solid #2a4a5a", position:"sticky", top:0, zIndex:10 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+          <button onClick={onBack} style={{ background:"none", border:"1px solid #2a5a7a", color:"#4a9abf", borderRadius:8, padding:"6px 12px", cursor:"pointer", fontSize:13 }}>← Back</button>
+          <div>
+            <div style={{ fontSize:17, fontFamily:"'Libre Baskerville',serif", color:"#e8e0d4" }}>{student.name} — Detail</div>
+            <div style={{ fontSize:11, color:"#4a7a9a" }}>{formatDate(ts.current)}</div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ padding:16, maxWidth:600, margin:"0 auto" }}>
+
+        {/* Severity */}
+        <div style={{ background:"#152535", borderRadius:12, padding:14, marginBottom:12 }}>
+          <div style={{ fontSize:11, color:"#e0c84a", fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:8 }}>Severity *</div>
+          <div style={{ display:"flex", gap:8 }}>
+            {[1,2,3,4,5].map(n => (
+              <button key={n} onClick={() => setSeverity(n)} style={{
+                flex:1, padding:"12px 4px", borderRadius:10,
+                border: severity===n ? `2px solid ${SEV_COLOR[n]}` : "1.5px solid #2a4a5a",
+                background: severity===n ? `${SEV_COLOR[n]}22` : "#0f2030",
+                color: severity===n ? SEV_COLOR[n] : "#3a6a7a",
+                cursor:"pointer", fontSize:14, fontWeight:700, transition:"all 0.15s"
+              }}>{n}</button>
+            ))}
+          </div>
+          {severity > 0 && <div style={{ fontSize:12, color:SEV_COLOR[severity], marginTop:6, textAlign:"center", fontStyle:"italic" }}>{SEV_LABEL[severity]}</div>}
+        </div>
+
+        {/* Antecedent */}
+        <div style={{ background:"#152535", borderRadius:12, padding:14, marginBottom:12 }}>
+          <div style={{ fontSize:11, color:"#7ab8e0", fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:8 }}>A — Antecedent</div>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+            {ANTECEDENTS.map(item => (
+              <button key={item.id} onClick={() => setAntecedent(antecedent===item.id?"":item.id)} style={{
+                padding:"9px 12px", borderRadius:9, textAlign:"left",
+                border: antecedent===item.id ? "2px solid #7ab8e0" : "1.5px solid #2a4a5a",
+                background: antecedent===item.id ? "#7ab8e022" : "#0f2030",
+                color: antecedent===item.id ? "#7ab8e0" : "#5a8a9a",
+                cursor:"pointer", flex:"1 1 calc(50% - 4px)", minWidth:0, transition:"all 0.15s"
+              }}>
+                <div style={{ fontSize:13, fontWeight:600 }}>{item.label}</div>
+                <div style={{ fontSize:11, opacity:0.7, marginTop:1, fontStyle:"italic" }}>{item.desc}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Behaviour */}
+        <div style={{ background:"#152535", borderRadius:12, padding:14, marginBottom:12 }}>
+          <div style={{ fontSize:11, color:"#e0a84a", fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:8 }}>B — Behaviour</div>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+            {QUICK_BEHAVIOURS.map(item => (
+              <button key={item.id} onClick={() => setBehaviour(behaviour===item.id?"":item.id)} style={{
+                padding:"9px 12px", borderRadius:9, textAlign:"left",
+                border: behaviour===item.id ? `2px solid ${item.color}` : "1.5px solid #2a4a5a",
+                background: behaviour===item.id ? `${item.color}22` : "#0f2030",
+                color: behaviour===item.id ? item.color : "#5a8a9a",
+                cursor:"pointer", flex:"1 1 calc(50% - 4px)", minWidth:0, transition:"all 0.15s"
+              }}>
+                <div style={{ fontSize:13, fontWeight:600 }}>{item.icon} {item.label}</div>
+                <div style={{ fontSize:11, opacity:0.7, marginTop:1, fontStyle:"italic" }}>{item.desc}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Consequences */}
+        <div style={{ background:"#152535", borderRadius:12, padding:14, marginBottom:12 }}>
+          <div style={{ fontSize:11, color:"#a87ae0", fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:10 }}>C — Consequence</div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <div>
+              <div style={{ fontSize:11, color:C_GREEN, marginBottom:6, fontWeight:600 }}>TEACHER RESPONSE</div>
+              {TEACHER_CONSEQUENCES.map(item => <ConseqBtn key={item.id} item={item} selected={teacherC===item.id} onTap={v => setTeacherC(teacherC===v?"":v)} />)}
+            </div>
+            <div>
+              <div style={{ fontSize:11, color:"#c07ae0", marginBottom:6, fontWeight:600 }}>STUDENT EXPERIENCE</div>
+              {STUDENT_CONSEQUENCES.map(item => <ConseqBtn key={item.id} item={item} selected={studentC===item.id} onTap={v => setStudentC(studentC===v?"":v)} />)}
+            </div>
+          </div>
+          {/* Legend */}
+          <div style={{ display:"flex", gap:12, marginTop:12, paddingTop:10, borderTop:"1px solid #1a3a4a" }}>
+            {[[C_GREEN,"Prosocial / De-escalating"],[C_AMBER,"Ambiguous"],[C_RED,"Maintains / Escalates"]].map(([c,l]) => (
+              <div key={l} style={{ display:"flex", alignItems:"center", gap:4 }}>
+                <div style={{ width:8, height:8, borderRadius:"50%", background:c, flexShrink:0 }} />
+                <span style={{ fontSize:10, color:"#4a6a7a" }}>{l}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <button onClick={handleSave} disabled={!canSave} style={{
+          width:"100%", padding:16, marginBottom:32,
+          background: saved ? "#2a6a4a" : canSave ? "linear-gradient(135deg,#1a5a7a,#2a4a6a)" : "#1a2a3a",
+          color: canSave ? "#e8e0d4" : "#2a5a6a",
+          border:"none", borderRadius:12, fontSize:16,
+          fontFamily:"'Libre Baskerville',serif", cursor: canSave?"pointer":"not-allowed",
+          transition:"all 0.3s", boxShadow: canSave?"0 4px 20px rgba(26,90,122,0.4)":"none"
+        }}>
+          {saved ? "✓ Saved" : "Save Incident"}
+        </button>
+        {!canSave && <p style={{ textAlign:"center", color:"#2a5a6a", fontSize:12, marginTop:-28, marginBottom:32 }}>Set a severity level to save</p>}
+      </div>
+    </div>
+  );
+}
+
+// ── NOTES SCREEN ──────────────────────────────────────────────────────────────
+function NotesScreen({ student, entries, onUpdateNote, onBack }) {
+  const [editId, setEditId] = useState(null);
+  const [noteText, setNoteText] = useState("");
+  const sorted = [...entries].sort((a,b) => new Date(b.timestamp)-new Date(a.timestamp));
+
+  return (
+    <div style={{ minHeight:"100vh", background:"#0f2030" }}>
+      <div style={{ background:"linear-gradient(135deg,#1a3a4a,#0f2a3a)", padding:"14px 16px", borderBottom:"1px solid #2a4a5a", position:"sticky", top:0, zIndex:10 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+          <button onClick={onBack} style={{ background:"none", border:"1px solid #2a5a7a", color:"#4a9abf", borderRadius:8, padding:"6px 12px", cursor:"pointer", fontSize:13 }}>← Back</button>
+          <div style={{ fontSize:17, fontFamily:"'Libre Baskerville',serif", color:"#e8e0d4" }}>{student.name} — Notes</div>
+        </div>
+      </div>
+      <div style={{ padding:16, maxWidth:600, margin:"0 auto" }}>
+        {sorted.length === 0 && <div style={{ textAlign:"center", color:"#3a6a7a", padding:60, fontStyle:"italic" }}>No incidents logged yet</div>}
+        {sorted.map(entry => {
+          const beh = QUICK_BEHAVIOURS.find(b => b.id === entry.behaviour);
+          return (
+            <div key={entry.id} style={{ background:"#152535", borderRadius:12, padding:14, marginBottom:12, border:"1px solid #2a4a5a" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}>
+                <span style={{ fontSize:11, color:"#4a7a9a" }}>{formatShort(entry.timestamp)}</span>
+                <span style={{ fontSize:11, fontWeight:700, padding:"2px 8px", borderRadius:5, background:`${SEV_COLOR[entry.severity]}22`, color:SEV_COLOR[entry.severity] }}>S{entry.severity}</span>
+              </div>
+              {beh && <div style={{ fontSize:12, color:beh.color, marginBottom:4 }}>{beh.icon} {beh.label}</div>}
+              {editId === entry.id ? (
+                <div>
+                  <textarea value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="Notes about this incident..." style={{ width:"100%", padding:"10px 12px", borderRadius:8, border:"1px solid #2a5a7a", background:"#0f2030", color:"#e8e0d4", fontFamily:"'DM Sans',sans-serif", fontSize:13, resize:"vertical", minHeight:80, lineHeight:1.6 }} />
+                  <div style={{ display:"flex", gap:8, marginTop:8 }}>
+                    <button onClick={() => { onUpdateNote(student.id, entry.id, noteText); setEditId(null); }} style={{ flex:1, padding:8, borderRadius:8, background:"#1a5a7a", color:"#e8e0d4", border:"none", cursor:"pointer", fontSize:13 }}>Save</button>
+                    <button onClick={() => setEditId(null)} style={{ padding:"8px 14px", borderRadius:8, background:"none", color:"#4a7a9a", border:"1px solid #2a4a5a", cursor:"pointer", fontSize:13 }}>Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  {entry.notes && <div style={{ fontSize:13, color:"#8ab0c0", fontStyle:"italic", marginBottom:6, lineHeight:1.5 }}>"{entry.notes}"</div>}
+                  <button onClick={() => { setEditId(entry.id); setNoteText(entry.notes||""); }} style={{ fontSize:12, color:"#4a7a9a", background:"none", border:"1px solid #2a4a5a", borderRadius:6, padding:"4px 10px", cursor:"pointer" }}>{entry.notes ? "Edit note" : "+ Add note"}</button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── INSIGHTS SCREEN ───────────────────────────────────────────────────────────
+function InsightsScreen({ student, entries, onBack }) {
+  if (entries.length < 2) {
+    return (
+      <div style={{ minHeight:"100vh", background:"#0f2030" }}>
+        <div style={{ background:"linear-gradient(135deg,#1a3a4a,#0f2a3a)", padding:"14px 16px", borderBottom:"1px solid #2a4a5a" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+            <button onClick={onBack} style={{ background:"none", border:"1px solid #2a5a7a", color:"#4a9abf", borderRadius:8, padding:"6px 12px", cursor:"pointer", fontSize:13 }}>← Back</button>
+            <div style={{ fontSize:17, fontFamily:"'Libre Baskerville',serif", color:"#e8e0d4" }}>{student.name} — Insights</div>
+          </div>
+        </div>
+        <div style={{ textAlign:"center", color:"#3a6a7a", padding:60, fontStyle:"italic" }}>Log at least 2 incidents to see patterns</div>
+      </div>
+    );
+  }
+
+  function countBy(key) {
+    return entries.reduce((acc,e) => { if(e[key]) acc[e[key]]=(acc[e[key]]||0)+1; return acc; }, {});
+  }
+  function topOf(obj, lookup) {
+    const s = Object.entries(obj).sort((a,b)=>b[1]-a[1]);
+    if (!s.length) return null;
+    const item = lookup.find(x=>x.id===s[0][0]);
+    return { label: item?.label||s[0][0], count:s[0][1] };
+  }
+
+  const behCounts = countBy("behaviour");
+  const antCounts = countBy("antecedent");
+  const tcCounts  = countBy("teacherC");
+  const scCounts  = countBy("studentC");
+
+  const topBeh = topOf(behCounts, QUICK_BEHAVIOURS);
+  const topAnt = topOf(antCounts, ANTECEDENTS);
+  const topTC  = topOf(tcCounts,  TEACHER_CONSEQUENCES);
+  const topSC  = topOf(scCounts,  STUDENT_CONSEQUENCES);
+
+  const avgSev = (entries.reduce((s,e)=>s+e.severity,0)/entries.length).toFixed(1);
+  const dayNames = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const dayCounts = entries.reduce((acc,e) => { const d=new Date(e.timestamp).getDay(); acc[d]=(acc[d]||0)+1; return acc; },{});
+  const peakDay = Object.entries(dayCounts).sort((a,b)=>b[1]-a[1])[0];
+  const hourCounts = entries.reduce((acc,e) => { const h=new Date(e.timestamp).getHours(); const slot=h<10?"Morning":h<12?"Late Morning":h<14?"After Lunch":h<16?"Afternoon":"End of Day"; acc[slot]=(acc[slot]||0)+1; return acc; },{});
+  const peakTime = Object.entries(hourCounts).sort((a,b)=>b[1]-a[1])[0];
+
+  function Bar({ label, count, total, color }) {
+    return (
+      <div style={{ marginBottom:10 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
+          <span style={{ fontSize:13, color:"#c0d8e8" }}>{label}</span>
+          <span style={{ fontSize:13, color, fontWeight:600 }}>{count}x</span>
+        </div>
+        <div style={{ background:"#0f2030", borderRadius:4, height:6 }}>
+          <div style={{ width:`${Math.round(count/total*100)}%`, height:"100%", background:color, borderRadius:4 }} />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ minHeight:"100vh", background:"#0f2030" }}>
+      <div style={{ background:"linear-gradient(135deg,#1a3a4a,#0f2a3a)", padding:"14px 16px", borderBottom:"1px solid #2a4a5a", position:"sticky", top:0, zIndex:10 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+          <button onClick={onBack} style={{ background:"none", border:"1px solid #2a5a7a", color:"#4a9abf", borderRadius:8, padding:"6px 12px", cursor:"pointer", fontSize:13 }}>← Back</button>
+          <div style={{ fontSize:17, fontFamily:"'Libre Baskerville',serif", color:"#e8e0d4" }}>{student.name} — Pattern Analysis</div>
+        </div>
+      </div>
+      <div style={{ padding:16, maxWidth:600, margin:"0 auto" }}>
+
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:14 }}>
+          {[
+            { label:"Incidents", value:entries.length, color:"#4a9abf" },
+            { label:"Avg Severity", value:avgSev, color:SEV_COLOR[Math.round(parseFloat(avgSev))]||"#4a9abf" },
+            { label:"Peak Day", value:peakDay?dayNames[peakDay[0]]:"—", color:"#e0a84a" },
+          ].map(s => (
+            <div key={s.label} style={{ background:"#152535", borderRadius:10, padding:"12px 10px", textAlign:"center" }}>
+              <div style={{ fontSize:22, fontWeight:700, color:s.color, fontFamily:"'Libre Baskerville',serif" }}>{s.value}</div>
+              <div style={{ fontSize:11, color:"#4a7a9a", marginTop:2 }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {peakTime && (
+          <div style={{ background:"#152535", borderRadius:12, padding:14, marginBottom:12 }}>
+            <div style={{ fontSize:11, color:"#4a9abf", fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:4 }}>Peak Time of Day</div>
+            <div style={{ fontSize:16, color:"#e8e0d4", fontFamily:"'Libre Baskerville',serif" }}>{peakTime[0]} <span style={{ color:"#4a9abf", fontSize:13 }}>({peakTime[1]} incident{peakTime[1]>1?"s":""})</span></div>
+          </div>
+        )}
+
+        {Object.keys(behCounts).length > 0 && (
+          <div style={{ background:"#152535", borderRadius:12, padding:14, marginBottom:12 }}>
+            <div style={{ fontSize:11, color:"#e0a84a", fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:10 }}>Behaviour Patterns</div>
+            {Object.entries(behCounts).sort((a,b)=>b[1]-a[1]).map(([id,cnt]) => {
+              const item = QUICK_BEHAVIOURS.find(x=>x.id===id);
+              return <Bar key={id} label={`${item?.icon||""} ${item?.label||id}`} count={cnt} total={entries.length} color={item?.color||"#4a9abf"} />;
+            })}
+          </div>
+        )}
+
+        {Object.keys(antCounts).length > 0 && (
+          <div style={{ background:"#152535", borderRadius:12, padding:14, marginBottom:12 }}>
+            <div style={{ fontSize:11, color:"#7ab8e0", fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:10 }}>Antecedent Patterns</div>
+            {Object.entries(antCounts).sort((a,b)=>b[1]-a[1]).map(([id,cnt]) => {
+              const item = ANTECEDENTS.find(x=>x.id===id);
+              return <Bar key={id} label={item?.label||id} count={cnt} total={entries.length} color="#7ab8e0" />;
+            })}
+          </div>
+        )}
+
+        {(Object.keys(tcCounts).length > 0 || Object.keys(scCounts).length > 0) && (
+          <div style={{ background:"#152535", borderRadius:12, padding:14, marginBottom:12 }}>
+            <div style={{ fontSize:11, color:"#a87ae0", fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:10 }}>Consequence Patterns</div>
+            {Object.keys(tcCounts).length > 0 && (
+              <>
+                <div style={{ fontSize:11, color:C_GREEN, marginBottom:6 }}>Teacher Response</div>
+                {Object.entries(tcCounts).sort((a,b)=>b[1]-a[1]).map(([id,cnt]) => {
+                  const item = TEACHER_CONSEQUENCES.find(x=>x.id===id);
+                  return <Bar key={id} label={item?.label||id} count={cnt} total={entries.length} color={tierColor(item?.tier||"amber")} />;
+                })}
+              </>
+            )}
+            {Object.keys(scCounts).length > 0 && (
+              <>
+                <div style={{ fontSize:11, color:"#c07ae0", marginBottom:6, marginTop:10 }}>Student Experience</div>
+                {Object.entries(scCounts).sort((a,b)=>b[1]-a[1]).map(([id,cnt]) => {
+                  const item = STUDENT_CONSEQUENCES.find(x=>x.id===id);
+                  return <Bar key={id} label={item?.label||id} count={cnt} total={entries.length} color={tierColor(item?.tier||"amber")} />;
+                })}
+              </>
+            )}
+          </div>
+        )}
+
+        {entries.length >= 3 && topBeh && topAnt && (
+          <div style={{ background:"linear-gradient(135deg,#1a3a2a,#1a2a3a)", borderRadius:12, padding:16, marginBottom:32, border:"1px solid #2a5a4a" }}>
+            <div style={{ fontSize:11, color:"#4a9a6a", fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:10 }}>SPED Meeting Summary</div>
+            <p style={{ fontSize:13, color:"#c0d8c8", lineHeight:1.8 }}>
+              Over {entries.length} logged incidents, {student.name}'s most frequent trigger was <strong style={{ color:"#7ab8e0" }}>{topAnt.label}</strong> ({topAnt.count}x), with the most common behaviour being <strong style={{ color:"#e0a84a" }}>{topBeh.label}</strong> ({topBeh.count}x).{topTC && <> Most frequent teacher response: <strong style={{ color:tierColor(TEACHER_CONSEQUENCES.find(x=>x.id===topTC.label.toLowerCase().replace(/ /g,""))?.tier||"amber") }}>{topTC.label}</strong>.</>}{topSC && <> Student experience most often logged as: <strong style={{ color:tierColor(STUDENT_CONSEQUENCES.find(x=>x.label===topSC.label)?.tier||"amber") }}>{topSC.label}</strong>.</>}{peakTime && <> Incidents cluster most heavily during <strong style={{ color:"#e0c84a" }}>{peakTime[0]}</strong>.</>}
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── STUDENT SCREEN ────────────────────────────────────────────────────────────
+function StudentScreen({ student, entries, onQuickLog, onFullLog, onBack, onUpdateNote, onDelete }) {
+  const [view, setView]           = useState("menu");
+  const [overlay, setOverlay]     = useState(null);
+  const [prefillBeh, setPrefillBeh] = useState("");
+
+  function handleQuickTap(behId) {
+    const ts = new Date().toISOString();
+    onQuickLog({ id:Date.now(), timestamp:ts, antecedent:"", behaviour:behId, teacherC:"", studentC:"", severity:3, notes:"" });
+    setOverlay(behId);
+  }
+
+  if (view === "detail") return <ABCDetail student={student} prefillBehaviour={prefillBeh} onSave={onFullLog} onBack={() => setView("menu")} />;
+  if (view === "notes")   return <NotesScreen student={student} entries={entries} onUpdateNote={onUpdateNote} onBack={() => setView("menu")} />;
+  if (view === "insights") return <InsightsScreen student={student} entries={entries} onBack={() => setView("menu")} />;
+
+  const recent = [...entries].sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp)).slice(0,3);
+
+  return (
+    <div style={{ minHeight:"100vh", background:"#0f2030" }}>
+      {/* Sticky header */}
+      <div style={{ background:"linear-gradient(135deg,#1a3a4a,#0f2a3a)", padding:"14px 16px", borderBottom:"1px solid #2a4a5a", position:"sticky", top:0, zIndex:10 }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+            <button onClick={onBack} style={{ background:"none", border:"1px solid #2a5a7a", color:"#4a9abf", borderRadius:8, padding:"6px 12px", cursor:"pointer", fontSize:13 }}>← Roster</button>
+            <div style={{ fontSize:19, fontFamily:"'Libre Baskerville',serif", color:"#e8e0d4" }}>{student.name}</div>
+          </div>
+          <div style={{ textAlign:"right" }}>
+            <div style={{ fontSize:18, fontWeight:700, color:"#4a9abf", fontFamily:"'Libre Baskerville',serif" }}>{entries.length}</div>
+            <div style={{ fontSize:10, color:"#3a6a7a" }}>incidents</div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ padding:16, maxWidth:600, margin:"0 auto" }}>
+
+        {/* Quick behaviour buttons */}
+        <div style={{ background:"#152535", borderRadius:12, padding:14, marginBottom:12 }}>
+          <div style={{ fontSize:11, color:"#e0c84a", fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:10 }}>Quick Log — Tap Behaviour</div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+            {QUICK_BEHAVIOURS.map(beh => (
+              <button key={beh.id} onClick={() => handleQuickTap(beh.id)} style={{
+                padding:"14px 12px", borderRadius:11,
+                background:`linear-gradient(135deg,${beh.color}18,${beh.color}08)`,
+                border:`1.5px solid ${beh.color}44`,
+                color:"#e8e0d4", cursor:"pointer", textAlign:"left",
+                transition:"all 0.15s", boxShadow:`0 2px 10px ${beh.color}18`
+              }}>
+                <div style={{ fontSize:20, marginBottom:4 }}>{beh.icon}</div>
+                <div style={{ fontSize:14, fontWeight:700, color: beh.color }}>{beh.label}</div>
+                <div style={{ fontSize:11, color:"#6a8a9a", marginTop:2, fontStyle:"italic" }}>{beh.desc}</div>
+              </button>
+            ))}
+          </div>
+          <button onClick={() => { setPrefillBeh(""); setView("detail"); }} style={{
+            width:"100%", marginTop:10, padding:"10px", background:"none",
+            color:"#4a7a9a", border:"1px dashed #2a4a5a", borderRadius:8,
+            cursor:"pointer", fontSize:13
+          }}>+ Full ABC Detail</button>
+        </div>
+
+        {/* Strategies strip */}
+        <StrategiesStrip />
+
+        {/* Nav */}
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:14 }}>
+          <button onClick={() => setView("notes")} style={{ padding:"13px", background:"#152535", color:"#8ab0c0", border:"1px solid #2a4a5a", borderRadius:12, cursor:"pointer", fontSize:13 }}>📝 Notes</button>
+          <button onClick={() => setView("insights")} style={{ padding:"13px", background:"#152535", color:"#8ab0c0", border:"1px solid #2a4a5a", borderRadius:12, cursor:"pointer", fontSize:13 }}>📊 Insights</button>
+        </div>
+
+        {/* Recent */}
+        {recent.length > 0 && (
+          <div>
+            <div style={{ fontSize:11, color:"#4a7a9a", fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:10 }}>Recent</div>
+            {recent.map(entry => {
+              const beh = QUICK_BEHAVIOURS.find(b=>b.id===entry.behaviour);
+              return (
+                <div key={entry.id} style={{ background:"#152535", borderRadius:10, padding:12, marginBottom:8, border:"1px solid #2a4a5a" }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                    <span style={{ fontSize:11, color:"#4a7a9a" }}>{formatShort(entry.timestamp)}</span>
+                    <span style={{ fontSize:11, fontWeight:700, padding:"1px 7px", borderRadius:5, background:`${SEV_COLOR[entry.severity]}22`, color:SEV_COLOR[entry.severity] }}>S{entry.severity}</span>
+                  </div>
+                  {beh && <div style={{ fontSize:12, color:beh.color }}>{beh.icon} {beh.label}</div>}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div style={{ marginTop:24, paddingTop:14, borderTop:"1px solid #1a3a4a" }}>
+          <button onClick={() => { if(window.confirm(`Remove ${student.name} and all data?`)) onDelete(student.id); }} style={{ width:"100%", padding:10, background:"none", color:"#5a3a3a", border:"1px solid #3a2a2a", borderRadius:8, cursor:"pointer", fontSize:13 }}>Remove Student</button>
+        </div>
+      </div>
+
+      {overlay && <StrategyOverlay behaviour={overlay} onClose={() => setOverlay(null)} />}
+    </div>
+  );
+}
+
+// ── HOME / ROSTER ─────────────────────────────────────────────────────────────
+const STUDENT_COLORS = ["#4a9abf","#e0a84a","#7ab87a","#e07a7a","#a87ae0","#7ab8e0","#e0c84a","#4abf9a","#e07ab8","#7a9ae0"];
+
+function App() {
+  const [data, setData] = useState(() => {
+    const s = load();
+    return { students: s.students||[], incidents: s.incidents||{} };
+  });
+  const [selected, setSelected]     = useState(null);
+  const [adding, setAdding]         = useState(false);
+  const [newName, setNewName]       = useState("");
+
+  useEffect(() => { save(data); }, [data]);
+
+  function addStudent() {
+    const name = newName.trim();
+    if (!name) return;
+    const s = { id:Date.now(), name, color:STUDENT_COLORS[data.students.length % STUDENT_COLORS.length] };
+    setData(d => ({ ...d, students:[...d.students, s] }));
+    setNewName(""); setAdding(false);
+  }
+
+  function quickLog(sid, entry) {
+    setData(d => ({ ...d, incidents:{ ...d.incidents, [sid]:[...(d.incidents[sid]||[]), entry] } }));
+  }
+  function fullLog(sid, entry) {
+    setData(d => ({ ...d, incidents:{ ...d.incidents, [sid]:[...(d.incidents[sid]||[]), entry] } }));
+  }
+  function updateNote(sid, eid, notes) {
+    setData(d => ({ ...d, incidents:{ ...d.incidents, [sid]:(d.incidents[sid]||[]).map(e=>e.id===eid?{...e,notes}:e) } }));
+  }
+  function deleteStudent(sid) {
+    setData(d => { const inc={...d.incidents}; delete inc[sid]; return { ...d, students:d.students.filter(s=>s.id!==sid), incidents:inc }; });
+    setSelected(null);
+  }
+
+  if (selected) {
+    const student = data.students.find(s=>s.id===selected);
+    if (!student) { setSelected(null); return null; }
+    return (
+      <StudentScreen
+        student={student}
+        entries={data.incidents[selected]||[]}
+        onQuickLog={e => quickLog(selected, e)}
+        onFullLog={e => fullLog(selected, e)}
+        onBack={() => setSelected(null)}
+        onUpdateNote={updateNote}
+        onDelete={deleteStudent}
+      />
+    );
+  }
+
+  return (
+    <div style={{ minHeight:"100vh", background:"#0f2030" }}>
+      <div style={{ background:"linear-gradient(135deg,#1a3a4a,#0f2a3a)", padding:"20px 16px 16px", borderBottom:"1px solid #2a4a5a", position:"sticky", top:0, zIndex:10 }}>
+        <div style={{ maxWidth:600, margin:"0 auto" }}>
+          <div style={{ fontSize:26, fontFamily:"'Libre Baskerville',serif", color:"#e8e0d4" }}>CalmAM <span style={{ color:"#4a9abf" }}>Classroom</span></div>
+          <div style={{ fontSize:12, color:"#4a7a9a", marginTop:2, fontStyle:"italic" }}>ABC Behaviour Tracking</div>
+        </div>
+      </div>
+
+      <div style={{ padding:16, maxWidth:600, margin:"0 auto" }}>
+        {data.students.length === 0 && !adding && (
+          <div style={{ textAlign:"center", padding:"60px 20px", color:"#3a6a7a" }}>
+            <div style={{ fontSize:40, marginBottom:12 }}>📋</div>
+            <div style={{ fontStyle:"italic", marginBottom:4 }}>No students yet</div>
+            <div style={{ fontSize:12 }}>Tap + Add Student to get started</div>
+          </div>
+        )}
+
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginBottom:14 }}>
+          {data.students.map(s => {
+            const cnt = (data.incidents[s.id]||[]).length;
+            return (
+              <button key={s.id} onClick={() => setSelected(s.id)} style={{
+                padding:"16px 10px", borderRadius:12,
+                background:`linear-gradient(135deg,${s.color}18,${s.color}08)`,
+                border:`1.5px solid ${s.color}44`, color:"#e8e0d4",
+                cursor:"pointer", textAlign:"center", transition:"all 0.15s",
+                boxShadow:`0 2px 12px ${s.color}18`
+              }}>
+                <div style={{ width:40, height:40, borderRadius:"50%", background:`linear-gradient(135deg,${s.color}44,${s.color}22)`, border:`2px solid ${s.color}66`, display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 8px", fontSize:16, fontWeight:700, color:s.color, fontFamily:"'Libre Baskerville',serif" }}>
+                  {s.name.charAt(0).toUpperCase()}
+                </div>
+                <div style={{ fontSize:13, fontWeight:600, color:"#d0e8f0", marginBottom:4, lineHeight:1.2 }}>{s.name}</div>
+                <div style={{ fontSize:11, color:cnt>0?s.color:"#3a6a7a" }}>{cnt>0?`${cnt} incident${cnt>1?"s":""}`:"No incidents"}</div>
+              </button>
+            );
+          })}
+        </div>
+
+        {adding ? (
+          <div style={{ background:"#152535", borderRadius:12, padding:16, marginBottom:14 }}>
+            <div style={{ fontSize:13, color:"#4a9abf", marginBottom:10, fontWeight:600 }}>Add Student</div>
+            <input autoFocus value={newName} onChange={e=>setNewName(e.target.value)}
+              onKeyDown={e=>{if(e.key==="Enter")addStudent();if(e.key==="Escape")setAdding(false);}}
+              placeholder="Student name or initials"
+              style={{ width:"100%", padding:"10px 12px", borderRadius:8, border:"1px solid #2a5a7a", background:"#0f2030", color:"#e8e0d4", fontFamily:"'DM Sans',sans-serif", fontSize:15, marginBottom:10 }}
+            />
+            <div style={{ display:"flex", gap:8 }}>
+              <button onClick={addStudent} style={{ flex:1, padding:10, background:"#1a5a7a", color:"#e8e0d4", border:"none", borderRadius:8, cursor:"pointer", fontSize:14 }}>Add</button>
+              <button onClick={()=>{setAdding(false);setNewName("");}} style={{ padding:"10px 16px", background:"none", color:"#4a7a9a", border:"1px solid #2a4a5a", borderRadius:8, cursor:"pointer", fontSize:14 }}>Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <button onClick={()=>setAdding(true)} style={{ width:"100%", padding:14, background:"none", color:"#4a9abf", border:"1.5px dashed #2a5a7a", borderRadius:12, cursor:"pointer", fontSize:14 }}>+ Add Student</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
