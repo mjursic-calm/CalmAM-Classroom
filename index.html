@@ -744,6 +744,7 @@ function App() {
   const [selected, setSelected]     = useState(null);
   const [adding, setAdding]         = useState(false);
   const [newName, setNewName]       = useState("");
+  const [showHelp, setShowHelp]     = useState(false);
 
   useEffect(() => { save(data); }, [data]);
 
@@ -796,6 +797,27 @@ function App() {
       </div>
 
       <div style={{ padding:16, maxWidth:600, margin:"0 auto" }}>
+
+        {!showHelp ? (
+          <button onClick={() => setShowHelp(true)} style={{
+            width:"100%", padding:"10px 14px", borderRadius:10, marginBottom:14,
+            border:"1px solid #3a5a7a55", background:"#3a5a7a12",
+            color:"#3a5a7a", fontSize:13, fontWeight:600, cursor:"pointer",
+            fontFamily:"'Inter',sans-serif"
+          }}>Getting Started</button>
+        ) : (
+          <div style={{ background:"#fff", borderRadius:12, padding:"16px 18px", marginBottom:14, border:"1px solid #3a5a7a30" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+              <div style={{ fontSize:14, fontWeight:600, color:"#3a5a7a" }}>Getting Started</div>
+              <button onClick={() => setShowHelp(false)} style={{ background:"none", border:"none", color:"#5a7a8a", fontSize:13, cursor:"pointer" }}>Close</button>
+            </div>
+            <p style={{ fontSize:13, lineHeight:1.7, color:"#1a2a3a", marginBottom:10 }}><strong>Add a student</strong> using initials or a first name, whatever fits your record-keeping comfort level.</p>
+            <p style={{ fontSize:13, lineHeight:1.7, color:"#1a2a3a", marginBottom:10 }}><strong>Tap a student's tile</strong> right after a behaviour incident to log it. The quick-log options are built for speed, just a few taps, roughly ten seconds, while the moment is still fresh.</p>
+            <p style={{ fontSize:13, lineHeight:1.7, color:"#1a2a3a", marginBottom:10 }}><strong>Use Full Log</strong> when you have a moment afterward to add more context, an antecedent, the behaviour itself, and the consequence.</p>
+            <p style={{ fontSize:13, lineHeight:1.7, color:"#1a2a3a" }}>Everything saves automatically as you go, there's no save button to remember. Insights for each student build up the more entries you log.</p>
+          </div>
+        )}
+
         {data.students.length === 0 && !adding && (
           <div style={{ textAlign:"center", padding:"60px 20px", color:"#5a7a8a" }}>
             <div style={{ fontSize:40, marginBottom:12 }}>📋</div>
@@ -842,7 +864,7 @@ function App() {
           <button onClick={()=>setAdding(true)} style={{ width:"100%", padding:14, background:"none", color:"#3a5a7a", border:"1.5px dashed #3a5a7a", borderRadius:12, cursor:"pointer", fontSize:14 }}>+ Add Student</button>
         )}
         <div style={{ textAlign:"center", marginTop:32, paddingBottom:8 }}>
-          <div style={{ fontSize:11, color:"#8a9aaa", fontStyle:"italic" }}>Calm AM ABC © Michael Jursic 2026</div>
+          <div style={{ fontSize:11, color:"#8a9aaa", fontStyle:"italic" }}>Calm AM ABC © Michael Jursic 2026. All rights reserved.</div>
         </div>
       </div>
     </div>
