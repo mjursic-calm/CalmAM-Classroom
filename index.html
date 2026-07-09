@@ -31,22 +31,18 @@ input:focus { outline: none; }
 
 const { useState, useEffect, useRef } = React;
 
-// Push a history entry when navigating into a student screen
-// so Android back button returns to home instead of exiting the app
-function useAndroidBack(selected, onBack) {
+// Tracks navigation depth so Android back goes one screen at a time
+// depth 0 = home, depth 1 = student screen, depth 2 = sub-screen (detail/notes/insights)
+function useAndroidBack(depth, onBack) {
   useEffect(() => {
-    if (selected) {
-      history.pushState({ student: selected }, "");
-    }
-  }, [selected]);
+    if (depth > 0) history.pushState({ depth }, "");
+  }, [depth]);
 
   useEffect(() => {
-    function handlePop(e) {
-      if (selected) onBack();
-    }
+    function handlePop() { onBack(); }
     window.addEventListener("popstate", handlePop);
     return () => window.removeEventListener("popstate", handlePop);
-  }, [selected, onBack]);
+  }, [onBack]);
 }
 
 const STORAGE_KEY = "calmam-classroom-v2";
@@ -254,7 +250,7 @@ function StrategyOverlay({ behaviour, onClose }) {
           <div key={si} style={{ marginBottom:20, background:"#f5f0e8", borderRadius:12, overflow:"hidden", border:"1px solid #a0b0c0" }}>
             <div style={{ background:`${beh.color}18`, borderBottom:`2px solid ${beh.color}44`, padding:"10px 14px" }}>
               <div style={{ fontSize:13, fontWeight:700, color: beh.color, letterSpacing:"0.03em" }}>{strat.name}</div>
-              <div style={{ fontSize:12, color:"#4a6a7a", marginTop:3, fontStyle:"italic" }}>{strat.text}</div>
+              <div style={{ fontSize:12, color:"#2a3a4a", marginTop:3, fontStyle:"italic" }}>{strat.text}</div>
             </div>
             <div style={{ padding:"12px 14px" }}>
               <div style={{ fontSize:11, color:"#3a5a7a", fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:8 }}>Scripts</div>
@@ -266,14 +262,14 @@ function StrategyOverlay({ behaviour, onClose }) {
               ))}
               <div style={{ marginTop:12, background:"#eee8d8", borderRadius:8, padding:"10px 12px", border:"1px solid #3a5a6a" }}>
                 <div style={{ fontSize:11, color:"#3a5a7a", fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:4 }}>Non-Verbal</div>
-                <div style={{ fontSize:13, color:"#4a6a7a", lineHeight:1.6 }}>{strat.nonverbal}</div>
+                <div style={{ fontSize:13, color:"#2a3a4a", lineHeight:1.6 }}>{strat.nonverbal}</div>
               </div>
             </div>
           </div>
         ))}
 
         <div style={{ textAlign:"center", marginTop:8 }}>
-          <div style={{ fontSize:11, color:"#3a5a6a", fontStyle:"italic" }}>Incident logged automatically</div>
+          <div style={{ fontSize:11, color:"#1a3a4a", fontStyle:"italic" }}>Incident logged automatically</div>
         </div>
       </div>
     </div>
@@ -291,7 +287,7 @@ function StrategiesStrip() {
         alignItems:"center", fontSize:13, fontWeight:600, letterSpacing:"0.06em"
       }}>
         <span>📚 STRATEGIES REFERENCE</span>
-        <span style={{ fontSize:11, color:"#4a6a7a" }}>{open ? "▲ collapse" : "▼ expand"}</span>
+        <span style={{ fontSize:11, color:"#2a3a4a" }}>{open ? "▲ collapse" : "▼ expand"}</span>
       </button>
       {open && (
         <div style={{ padding:"0 14px 14px", borderTop:"1px solid #3a5a7a" }}>
@@ -303,11 +299,11 @@ function StrategiesStrip() {
               {beh.strategies.map((s, i) => (
                 <div key={i} style={{ marginBottom:10, paddingLeft:10, borderLeft:`2px solid ${beh.color}44` }}>
                   <div style={{ fontSize:12, fontWeight:600, color:"#1a2a3a", marginBottom:2 }}>{s.name}</div>
-                  <div style={{ fontSize:11, color:"#4a6a7a", fontStyle:"italic", marginBottom:4 }}>{s.text}</div>
+                  <div style={{ fontSize:11, color:"#2a3a4a", fontStyle:"italic", marginBottom:4 }}>{s.text}</div>
                   {s.scripts.map((sc, j) => (
-                    <div key={j} style={{ fontSize:12, color:"#4a6a7a", marginBottom:2 }}>› "{sc.text}"</div>
+                    <div key={j} style={{ fontSize:12, color:"#2a3a4a", marginBottom:2 }}>› "{sc.text}"</div>
                   ))}
-                  <div style={{ fontSize:11, color:"#4a6a7a", marginTop:4 }}>👁 {s.nonverbal}</div>
+                  <div style={{ fontSize:11, color:"#2a3a4a", marginTop:4 }}>👁 {s.nonverbal}</div>
                 </div>
               ))}
             </div>
@@ -439,7 +435,7 @@ function ABCDetail({ student, prefillBehaviour, onSave, onBack }) {
             {[[C_GREEN,"Prosocial / De-escalating"],[C_AMBER,"Ambiguous"],[C_RED,"Maintains / Escalates"]].map(([c,l]) => (
               <div key={l} style={{ display:"flex", alignItems:"center", gap:4 }}>
                 <div style={{ width:8, height:8, borderRadius:"50%", background:c, flexShrink:0 }} />
-                <span style={{ fontSize:10, color:"#4a6a7a" }}>{l}</span>
+                <span style={{ fontSize:10, color:"#2a3a4a" }}>{l}</span>
               </div>
             ))}
           </div>
@@ -447,15 +443,15 @@ function ABCDetail({ student, prefillBehaviour, onSave, onBack }) {
 
         <button onClick={handleSave} disabled={!canSave} style={{
           width:"100%", padding:16, marginBottom:32,
-          background: saved ? "#2a6a4a" : canSave ? "linear-gradient(135deg,#1a5a7a,#2a4a6a)" : "#1a2a3a",
-          color: canSave ? "#1a2a3a" : "#3a5a6a",
+          background: saved ? "#2a6a4a" : canSave ? "linear-gradient(135deg,#1a5a7a,#2a4a6a)" : "#c8c0b0",
+          color: "#ffffff",
           border:"none", borderRadius:12, fontSize:16,
           fontFamily:"'Inter',sans-serif", cursor: canSave?"pointer":"not-allowed",
           transition:"all 0.3s", boxShadow: canSave?"0 4px 20px rgba(26,90,122,0.4)":"none"
         }}>
           {saved ? "✓ Saved" : "Save Incident"}
         </button>
-        {!canSave && <p style={{ textAlign:"center", color:"#3a5a6a", fontSize:12, marginTop:-28, marginBottom:32 }}>Set a severity level to save</p>}
+        {!canSave && <p style={{ textAlign:"center", color:"#1a3a4a", fontSize:12, marginTop:-28, marginBottom:32 }}>Set a severity level to save</p>}
       </div>
     </div>
   );
@@ -476,7 +472,7 @@ function NotesScreen({ student, entries, onUpdateNote, onBack }) {
         </div>
       </div>
       <div style={{ padding:16, maxWidth:600, margin:"0 auto" }}>
-        {sorted.length === 0 && <div style={{ textAlign:"center", color:"#5a7a8a", padding:60, fontStyle:"italic" }}>No incidents logged yet</div>}
+        {sorted.length === 0 && <div style={{ textAlign:"center", color:"#2a4a5a", padding:60, fontStyle:"italic" }}>No incidents logged yet</div>}
         {sorted.map(entry => {
           const beh = QUICK_BEHAVIOURS.find(b => b.id === entry.behaviour);
           return (
@@ -496,7 +492,7 @@ function NotesScreen({ student, entries, onUpdateNote, onBack }) {
                 </div>
               ) : (
                 <div>
-                  {entry.notes && <div style={{ fontSize:13, color:"#4a6a7a", fontStyle:"italic", marginBottom:6, lineHeight:1.5 }}>"{entry.notes}"</div>}
+                  {entry.notes && <div style={{ fontSize:13, color:"#2a3a4a", fontStyle:"italic", marginBottom:6, lineHeight:1.5 }}>"{entry.notes}"</div>}
                   <button onClick={() => { setEditId(entry.id); setNoteText(entry.notes||""); }} style={{ fontSize:12, color:"#3a5a7a", background:"none", border:"1px solid #a0b0c0", borderRadius:6, padding:"4px 10px", cursor:"pointer" }}>{entry.notes ? "Edit note" : "+ Add note"}</button>
                 </div>
               )}
@@ -519,7 +515,7 @@ function InsightsScreen({ student, entries, onBack }) {
             <div style={{ fontSize:17, fontFamily:"'Inter',sans-serif", color:"#1a2a3a" }}>{student.name} — Insights</div>
           </div>
         </div>
-        <div style={{ textAlign:"center", color:"#5a7a8a", padding:60, fontStyle:"italic" }}>Log at least 2 incidents to see patterns</div>
+        <div style={{ textAlign:"center", color:"#2a4a5a", padding:60, fontStyle:"italic" }}>Log at least 2 incidents to see patterns</div>
       </div>
     );
   }
@@ -658,6 +654,13 @@ function StudentScreen({ student, entries, onQuickLog, onFullLog, onBack, onUpda
   const [overlay, setOverlay]     = useState(null);
   const [prefillBeh, setPrefillBeh] = useState("");
 
+  // depth 1 = student menu, depth 2 = sub-screen
+  const depth = view === "menu" ? 1 : 2;
+  useAndroidBack(depth, () => {
+    if (view !== "menu") setView("menu");
+    else onBack();
+  });
+
   function handleQuickTap(behId) {
     const ts = new Date().toISOString();
     onQuickLog({ id:Date.now(), timestamp:ts, antecedent:"", behaviour:behId, teacherC:"", studentC:"", severity:3, notes:"" });
@@ -681,7 +684,7 @@ function StudentScreen({ student, entries, onQuickLog, onFullLog, onBack, onUpda
           </div>
           <div style={{ textAlign:"right" }}>
             <div style={{ fontSize:18, fontWeight:700, color:"#3a5a7a", fontFamily:"'Inter',sans-serif" }}>{entries.length}</div>
-            <div style={{ fontSize:10, color:"#5a7a8a" }}>incidents</div>
+            <div style={{ fontSize:10, color:"#2a4a5a" }}>incidents</div>
           </div>
         </div>
       </div>
@@ -702,14 +705,16 @@ function StudentScreen({ student, entries, onQuickLog, onFullLog, onBack, onUpda
               }}>
                 <div style={{ fontSize:20, marginBottom:4 }}>{beh.icon}</div>
                 <div style={{ fontSize:14, fontWeight:700, color: beh.color }}>{beh.label}</div>
-                <div style={{ fontSize:11, color:"#4a6a7a", marginTop:2, fontStyle:"italic" }}>{beh.desc}</div>
+                <div style={{ fontSize:11, color:"#2a3a4a", marginTop:2, fontStyle:"italic" }}>{beh.desc}</div>
               </button>
             ))}
           </div>
           <button onClick={() => { setPrefillBeh(""); setView("detail"); }} style={{
-            width:"100%", marginTop:10, padding:"10px", background:"none",
-            color:"#3a5a7a", border:"1px dashed #a0b0c0", borderRadius:8,
-            cursor:"pointer", fontSize:13
+            width:"100%", marginTop:10, padding:"12px", borderRadius:8,
+            background:"linear-gradient(135deg,#2a4a6a,#1a3a5a)",
+            color:"#ffffff", border:"none",
+            cursor:"pointer", fontSize:14, fontWeight:700,
+            letterSpacing:"0.03em", boxShadow:"0 3px 12px rgba(26,58,90,0.4)"
           }}>+ Full ABC Detail</button>
         </div>
 
@@ -718,8 +723,8 @@ function StudentScreen({ student, entries, onQuickLog, onFullLog, onBack, onUpda
 
         {/* Nav */}
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:14 }}>
-          <button onClick={() => setView("notes")} style={{ padding:"13px", background:"#e8e0cc", color:"#4a6a7a", border:"1px solid #a0b0c0", borderRadius:12, cursor:"pointer", fontSize:13 }}>📝 Notes</button>
-          <button onClick={() => setView("insights")} style={{ padding:"13px", background:"#e8e0cc", color:"#4a6a7a", border:"1px solid #a0b0c0", borderRadius:12, cursor:"pointer", fontSize:13 }}>📊 Insights</button>
+          <button onClick={() => setView("notes")} style={{ padding:"13px", background:"#e8e0cc", color:"#2a3a4a", border:"1px solid #a0b0c0", borderRadius:12, cursor:"pointer", fontSize:13 }}>📝 Notes</button>
+          <button onClick={() => setView("insights")} style={{ padding:"13px", background:"#e8e0cc", color:"#2a3a4a", border:"1px solid #a0b0c0", borderRadius:12, cursor:"pointer", fontSize:13 }}>📊 Insights</button>
         </div>
 
         {/* Recent */}
@@ -788,8 +793,8 @@ function App() {
     setSelected(null);
   }
 
-  function handleBack() { setSelected(null); }
-  useAndroidBack(selected, handleBack);
+  const handleBack = React.useCallback(() => setSelected(null), []);
+  useAndroidBack(selected ? 1 : 0, handleBack);
 
   if (selected) {
     const student = data.students.find(s=>s.id===selected);
@@ -830,7 +835,7 @@ function App() {
           <div style={{ background:"#fff", borderRadius:12, padding:"16px 18px", marginBottom:14, border:"1px solid #3a5a7a30" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
               <div style={{ fontSize:14, fontWeight:600, color:"#3a5a7a" }}>Getting Started</div>
-              <button onClick={() => setShowHelp(false)} style={{ background:"none", border:"none", color:"#5a7a8a", fontSize:13, cursor:"pointer" }}>Close</button>
+              <button onClick={() => setShowHelp(false)} style={{ background:"none", border:"none", color:"#2a4a5a", fontSize:13, cursor:"pointer" }}>Close</button>
             </div>
             <p style={{ fontSize:13, lineHeight:1.7, color:"#1a2a3a", marginBottom:10 }}><strong>Add a student</strong> using initials or a first name, whatever fits your record-keeping comfort level.</p>
             <p style={{ fontSize:13, lineHeight:1.7, color:"#1a2a3a", marginBottom:10 }}><strong>Tap a student's tile</strong> right after a behaviour incident to log it. The quick-log options are built for speed, just a few taps, roughly ten seconds, while the moment is still fresh.</p>
@@ -840,7 +845,7 @@ function App() {
         )}
 
         {data.students.length === 0 && !adding && (
-          <div style={{ textAlign:"center", padding:"60px 20px", color:"#5a7a8a" }}>
+          <div style={{ textAlign:"center", padding:"60px 20px", color:"#2a4a5a" }}>
             <div style={{ fontSize:40, marginBottom:12 }}>📋</div>
             <div style={{ fontStyle:"italic", marginBottom:4 }}>No students yet</div>
             <div style={{ fontSize:12 }}>Tap + Add Student to get started</div>
@@ -862,7 +867,7 @@ function App() {
                   {s.name.charAt(0).toUpperCase()}
                 </div>
                 <div style={{ fontSize:13, fontWeight:600, color:"#1a2a3a", marginBottom:4, lineHeight:1.2 }}>{s.name}</div>
-                <div style={{ fontSize:11, color:cnt>0?s.color:"#5a7a8a" }}>{cnt>0?`${cnt} incident${cnt>1?"s":""}`:"No incidents"}</div>
+                <div style={{ fontSize:11, color:cnt>0?s.color:"#2a4a5a" }}>{cnt>0?`${cnt} incident${cnt>1?"s":""}`:"No incidents"}</div>
               </button>
             );
           })}
