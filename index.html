@@ -31,6 +31,24 @@ input:focus { outline: none; }
 
 const { useState, useEffect, useRef } = React;
 
+// Push a history entry when navigating into a student screen
+// so Android back button returns to home instead of exiting the app
+function useAndroidBack(selected, onBack) {
+  useEffect(() => {
+    if (selected) {
+      history.pushState({ student: selected }, "");
+    }
+  }, [selected]);
+
+  useEffect(() => {
+    function handlePop(e) {
+      if (selected) onBack();
+    }
+    window.addEventListener("popstate", handlePop);
+    return () => window.removeEventListener("popstate", handlePop);
+  }, [selected, onBack]);
+}
+
 const STORAGE_KEY = "calmam-classroom-v2";
 function load() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch { return {}; } }
 function save(d) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); } catch {} }
@@ -770,6 +788,9 @@ function App() {
     setSelected(null);
   }
 
+  function handleBack() { setSelected(null); }
+  useAndroidBack(selected, handleBack);
+
   if (selected) {
     const student = data.students.find(s=>s.id===selected);
     if (!student) { setSelected(null); return null; }
@@ -779,7 +800,7 @@ function App() {
         entries={data.incidents[selected]||[]}
         onQuickLog={e => quickLog(selected, e)}
         onFullLog={e => fullLog(selected, e)}
-        onBack={() => setSelected(null)}
+        onBack={handleBack}
         onUpdateNote={updateNote}
         onDelete={deleteStudent}
       />
