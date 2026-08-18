@@ -668,8 +668,9 @@ function StudentScreen({ student, entries, settings, onQuickLog, onFullLog, onBa
   const [prefillBeh, setPrefillBeh] = useState("");
 
   // depth 1 = student menu, depth 2 = sub-screen
-  const depth = view === "menu" ? 1 : 2;
+  const depth = (view !== "menu" || overlay) ? 2 : 1;
   useAndroidBack(depth, () => {
+    if (overlay) { setOverlay(null); return; }
     if (view !== "menu") setView("menu");
     else onBack();
   });
