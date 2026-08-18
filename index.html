@@ -48,6 +48,7 @@ function useAndroidBack(depth, onBack) {
 }
 
 const STORAGE_KEY = "calmam-classroom-v2";
+const DEFAULT_SETTINGS = { teacherName: "", school: "", location: "" };
 function load() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch { return {}; } }
 function save(d) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); } catch {} }
 
@@ -661,7 +662,7 @@ function InsightsScreen({ student, entries, onBack }) {
 }
 
 // ── STUDENT SCREEN ────────────────────────────────────────────────────────────
-function StudentScreen({ student, entries, onQuickLog, onFullLog, onBack, onUpdateNote, onDelete }) {
+function StudentScreen({ student, entries, settings, onQuickLog, onFullLog, onBack, onUpdateNote, onDelete }) {
   const [view, setView]           = useState("menu");
   const [overlay, setOverlay]     = useState(null);
   const [prefillBeh, setPrefillBeh] = useState("");
@@ -682,6 +683,7 @@ function StudentScreen({ student, entries, onQuickLog, onFullLog, onBack, onUpda
   if (view === "detail") return <ABCDetail student={student} prefillBehaviour={prefillBeh} onSave={onFullLog} onBack={() => setView("menu")} />;
   if (view === "notes")   return <NotesScreen student={student} entries={entries} onUpdateNote={onUpdateNote} onBack={() => setView("menu")} />;
   if (view === "insights") return <InsightsScreen student={student} entries={entries} onBack={() => setView("menu")} />;
+  if (view === "tdsb")   return <TDSBExportScreen student={student} entries={entries} settings={settings} onBack={() => setView("menu")} />;
 
   const recent = [...entries].sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp)).slice(0,3);
 
@@ -742,6 +744,13 @@ function StudentScreen({ student, entries, onQuickLog, onFullLog, onBack, onUpda
           <button onClick={() => setView("notes")} style={{ padding:"13px", background:"#e8e0cc", color:"#2a3a4a", border:"1px solid #a0b0c0", borderRadius:12, cursor:"pointer", fontSize:13 }}>📝 Notes</button>
           <button onClick={() => setView("insights")} style={{ padding:"13px", background:"#e8e0cc", color:"#2a3a4a", border:"1px solid #a0b0c0", borderRadius:12, cursor:"pointer", fontSize:13 }}>📊 Insights</button>
         </div>
+        <button onClick={() => setView("tdsb")} style={{
+          width:"100%", padding:"11px", marginBottom:14,
+          background:"linear-gradient(135deg,#1a3a5a,#0a2a4a)",
+          color:"#f5f0e8", border:"none", borderRadius:12,
+          cursor:"pointer", fontSize:13, fontWeight:600,
+          letterSpacing:"0.03em"
+        }}>📋 Export TDSB ABC Chart</button>
 
         {/* Recent */}
         {recent.length > 0 && (
@@ -772,18 +781,155 @@ function StudentScreen({ student, entries, onQuickLog, onFullLog, onBack, onUpda
   );
 }
 
+// ── SETTINGS SCREEN ───────────────────────────────────────────────────────────
+function SettingsScreen({ settings, onSave, onBack }) {
+  const [form, setForm] = useState({ ...settings });
+  function handleSave() { onSave(form); onBack(); }
+  return (
+    <div style={{ minHeight:"100vh", background:"#f5f0e8" }}>
+      <div style={{ background:"linear-gradient(135deg,#3a5a7a,#2a4a6a)", padding:"14px 16px 12px", position:"sticky", top:0, zIndex:10 }}>
+        <div style={{ maxWidth:600, margin:"0 auto", display:"flex", alignItems:"center", gap:12 }}>
+          <button onClick={onBack} style={{ background:"none", border:"1px solid #b8ccd8", color:"#f5f0e8", borderRadius:8, padding:"6px 12px", cursor:"pointer", fontSize:13 }}>← Back</button>
+          <div style={{ fontSize:18, fontFamily:"'Inter',sans-serif", color:"#f5f0e8", fontWeight:600 }}>Settings</div>
+        </div>
+      </div>
+      <div style={{ padding:16, maxWidth:600, margin:"0 auto" }}>
+        <div style={{ background:"#e8e0cc", borderRadius:12, padding:16, marginBottom:14 }}>
+          <div style={{ fontSize:13, color:"#3a5a7a", fontWeight:600, marginBottom:14 }}>Teacher Information</div>
+          {[["teacherName","Teacher Name","e.g. M. Jursic"],["school","School","e.g. Queen Alexandra PS"],["location","Default Location","e.g. Room 204"]].map(([key,label,ph]) => (
+            <div key={key} style={{ marginBottom:12 }}>
+              <div style={{ fontSize:12, color:"#2a4a5a", fontWeight:600, marginBottom:4 }}>{label}</div>
+              <input value={form[key]} onChange={e => setForm(f => ({...f,[key]:e.target.value}))}
+                placeholder={ph}
+                style={{ width:"100%", padding:"10px 12px", borderRadius:8, border:"1px solid #3a5a7a", background:"#f5f0e8", color:"#1a2a3a", fontFamily:"'Inter',sans-serif", fontSize:14 }}
+              />
+            </div>
+          ))}
+          <button onClick={handleSave} style={{ width:"100%", padding:12, background:"linear-gradient(135deg,#2a4a6a,#1a3a5a)", color:"#ffffff", border:"none", borderRadius:8, cursor:"pointer", fontSize:14, fontWeight:700, marginTop:4 }}>Save Settings</button>
+        </div>
+        <div style={{ fontSize:12, color:"#4a5a6a", fontStyle:"italic", textAlign:"center" }}>
+          These details pre-fill the TDSB ABC Data Recording Chart export.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── TDSB EXPORT SCREEN ────────────────────────────────────────────────────────
+function TDSBExportScreen({ student, entries, settings, onBack }) {
+  const antLabel = id => { const a = ANTECEDENTS.find(x=>x.id===id); return a ? a.label : id; };
+  const behLabel = id => { const b = QUICK_BEHAVIOURS.find(x=>x.id===id); return b ? b.label : id; };
+  const tcLabel  = id => { const t = TEACHER_CONSEQUENCES.find(x=>x.id===id); return t ? t.label : id; };
+  const scLabel  = id => { const s = STUDENT_CONSEQUENCES.find(x=>x.id===id); return s ? s.label : id; };
+
+  function buildConsequence(e) {
+    const parts = [];
+    if (e.teacherC) parts.push("Teacher: " + tcLabel(e.teacherC));
+    if (e.studentC) parts.push("Student: " + scLabel(e.studentC));
+    return parts.join(" / ") || "—";
+  }
+
+  const rows = entries.length > 0 ? entries : [];
+
+  function handlePrint() { window.print(); }
+
+  return (
+    <div style={{ minHeight:"100vh", background:"#f5f0e8" }}>
+      <style>{`
+        @media print {
+          .no-print { display:none!important; }
+          body { background:white; }
+          .print-page { padding:10mm; }
+        }
+      `}</style>
+      <div className="no-print" style={{ background:"linear-gradient(135deg,#3a5a7a,#2a4a6a)", padding:"14px 16px 12px", position:"sticky", top:0, zIndex:10 }}>
+        <div style={{ maxWidth:700, margin:"0 auto", display:"flex", alignItems:"center", gap:12 }}>
+          <button onClick={onBack} style={{ background:"none", border:"1px solid #b8ccd8", color:"#f5f0e8", borderRadius:8, padding:"6px 12px", cursor:"pointer", fontSize:13 }}>← Back</button>
+          <div style={{ fontSize:18, fontFamily:"'Inter',sans-serif", color:"#f5f0e8", fontWeight:600, flex:1 }}>TDSB ABC Export</div>
+          <button onClick={handlePrint} style={{ background:"#4a9a6a", border:"none", color:"#ffffff", borderRadius:8, padding:"8px 16px", cursor:"pointer", fontSize:13, fontWeight:700 }}>🖨 Print / Save PDF</button>
+        </div>
+      </div>
+
+      <div className="print-page" style={{ padding:16, maxWidth:700, margin:"0 auto" }}>
+        {/* Header */}
+        <div style={{ textAlign:"center", marginBottom:12 }}>
+          <div style={{ fontSize:15, fontWeight:700, color:"#1a2a3a" }}>ABC Data Recording Chart</div>
+          <div style={{ fontSize:11, color:"#4a5a6a" }}>Toronto District School Board · Behaviour Analysis Tool (Form 699Kii)</div>
+        </div>
+
+        {/* Student / Staff row */}
+        <div style={{ display:"flex", gap:16, marginBottom:10 }}>
+          <div style={{ flex:1, background:"white", border:"1px solid #a0b0c0", borderRadius:6, padding:"8px 10px" }}>
+            <div style={{ fontSize:10, color:"#4a5a6a", marginBottom:2 }}>STUDENT FIRST NAME / LAST INITIAL</div>
+            <div style={{ fontSize:13, fontWeight:600, color:"#1a2a3a" }}>{student.name}</div>
+          </div>
+          <div style={{ flex:1, background:"white", border:"1px solid #a0b0c0", borderRadius:6, padding:"8px 10px" }}>
+            <div style={{ fontSize:10, color:"#4a5a6a", marginBottom:2 }}>STAFF NAME</div>
+            <div style={{ fontSize:13, fontWeight:600, color:"#1a2a3a" }}>{settings.teacherName || "—"}</div>
+          </div>
+          <div style={{ flex:1, background:"white", border:"1px solid #a0b0c0", borderRadius:6, padding:"8px 10px" }}>
+            <div style={{ fontSize:10, color:"#4a5a6a", marginBottom:2 }}>SCHOOL</div>
+            <div style={{ fontSize:13, fontWeight:600, color:"#1a2a3a" }}>{settings.school || "—"}</div>
+          </div>
+        </div>
+
+        {/* Table */}
+        <div style={{ overflowX:"auto" }}>
+          <table style={{ width:"100%", borderCollapse:"collapse", fontSize:11, background:"white" }}>
+            <thead>
+              <tr style={{ background:"#2a4a6a", color:"white" }}>
+                {["Time","Location","People/Person Involved","Antecedent","Behaviour","Consequence","Comments"].map(h => (
+                  <th key={h} style={{ padding:"7px 8px", border:"1px solid #a0b0c0", textAlign:"left", fontWeight:600, whiteSpace:"nowrap" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length === 0 ? (
+                <tr><td colSpan={7} style={{ padding:20, textAlign:"center", color:"#4a5a6a", fontStyle:"italic" }}>No incidents logged yet.</td></tr>
+              ) : rows.map((e, i) => (
+                <tr key={e.id} style={{ background: i%2===0 ? "#f9f7f3" : "white" }}>
+                  <td style={{ padding:"7px 8px", border:"1px solid #d0c8b8", whiteSpace:"nowrap" }}>{new Date(e.timestamp).toLocaleString("en-CA",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit",weekday:"short"})}</td>
+                  <td style={{ padding:"7px 8px", border:"1px solid #d0c8b8" }}>{settings.location || "—"}</td>
+                  <td style={{ padding:"7px 8px", border:"1px solid #d0c8b8" }}>{settings.teacherName || "—"}</td>
+                  <td style={{ padding:"7px 8px", border:"1px solid #d0c8b8" }}>{antLabel(e.antecedent) || "—"}</td>
+                  <td style={{ padding:"7px 8px", border:"1px solid #d0c8b8" }}>{behLabel(e.behaviour) || "—"}</td>
+                  <td style={{ padding:"7px 8px", border:"1px solid #d0c8b8" }}>{buildConsequence(e)}</td>
+                  <td style={{ padding:"7px 8px", border:"1px solid #d0c8b8", minWidth:80 }}>{e.notes || ""}</td>
+                </tr>
+              ))}
+              {/* Blank rows */}
+              {Array.from({length:Math.max(0,5-rows.length)}).map((_,i) => (
+                <tr key={"blank"+i}>
+                  {Array.from({length:7}).map((_,j) => (
+                    <td key={j} style={{ padding:"18px 8px", border:"1px solid #d0c8b8" }}>&nbsp;</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div style={{ fontSize:10, color:"#4a5a6a", marginTop:10, textAlign:"right" }}>
+          Updated May 16, 2022 · Generated by calmAM ABC © Michael Jursic 2026
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── HOME / ROSTER ─────────────────────────────────────────────────────────────
 const STUDENT_COLORS = ["#3a5a7a","#e0a84a","#7ab87a","#e07a7a","#a87ae0","#7ab8e0","#e0c84a","#4abf9a","#e07ab8","#7a9ae0"];
 
 function App() {
   const [data, setData] = useState(() => {
     const s = load();
-    return { students: s.students||[], incidents: s.incidents||{} };
+    return { students: s.students||[], incidents: s.incidents||{}, settings: s.settings||{...DEFAULT_SETTINGS} };
   });
   const [selected, setSelected]     = useState(null);
   const [adding, setAdding]         = useState(false);
   const [newName, setNewName]       = useState("");
   const [showHelp, setShowHelp]     = useState(false);
+  const [appView, setAppView]       = useState("home"); // "home" | "settings"
 
   useEffect(() => { save(data); }, [data]);
 
@@ -808,9 +954,16 @@ function App() {
     setData(d => { const inc={...d.incidents}; delete inc[sid]; return { ...d, students:d.students.filter(s=>s.id!==sid), incidents:inc }; });
     setSelected(null);
   }
+  function saveSettings(s) {
+    setData(d => ({ ...d, settings: s }));
+  }
 
   const handleBack = React.useCallback(() => setSelected(null), []);
   useAndroidBack(selected ? 1 : 0, handleBack);
+
+  if (appView === "settings") {
+    return <SettingsScreen settings={data.settings} onSave={saveSettings} onBack={() => setAppView("home")} />;
+  }
 
   if (selected) {
     const student = data.students.find(s=>s.id===selected);
@@ -819,6 +972,7 @@ function App() {
       <StudentScreen
         student={student}
         entries={data.incidents[selected]||[]}
+        settings={data.settings}
         onQuickLog={e => quickLog(selected, e)}
         onFullLog={e => fullLog(selected, e)}
         onBack={handleBack}
@@ -831,10 +985,12 @@ function App() {
   return (
     <div style={{ minHeight:"100vh", background:"#f5f0e8" }}>
       <div style={{ background:"linear-gradient(135deg,#3a5a7a,#2a4a6a)", padding:"14px 16px 12px", borderBottom:"1px solid #a0b0c0", position:"sticky", top:0, zIndex:10 }}>
-        <div style={{ maxWidth:600, margin:"0 auto", textAlign:"center" }}>
-          <img src="data:image/png;base64,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" alt="mountains" style={{ width:"100%", maxHeight:48, objectFit:"contain", objectPosition:"center bottom", display:"block", opacity:0.85, marginBottom:4 }} />
-          <div style={{ fontSize:24, fontFamily:"'Inter',sans-serif", fontWeight:400, color:"#f5f0e8", letterSpacing:"0.01em", padding:0 }}>calmABC</div>
-          <div style={{ fontSize:11, color:"#b8ccd8", marginTop:2, fontStyle:"italic" }}>10 Second Behaviour Tracking</div>
+        <div style={{ maxWidth:600, margin:"0 auto", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+          <div style={{ flex:1, textAlign:"center" }}>
+            <div style={{ fontSize:24, fontFamily:"'Inter',sans-serif", fontWeight:400, color:"#f5f0e8", letterSpacing:"0.01em" }}>calmABC</div>
+            <div style={{ fontSize:11, color:"#b8ccd8", marginTop:2, fontStyle:"italic" }}>10 Second Behaviour Tracking</div>
+          </div>
+          <button onClick={() => setAppView("settings")} style={{ background:"none", border:"1px solid #b8ccd855", color:"#b8ccd8", borderRadius:8, padding:"6px 10px", cursor:"pointer", fontSize:18 }} title="Settings">⚙️</button>
         </div>
       </div>
 
