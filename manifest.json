@@ -1,0 +1,18 @@
+{
+  "name": "CalmAM ABC",
+  "short_name": "calmABC",
+  "description": "Classroom behaviour tracking tool for teachers",
+  "start_url": "/CalmAM-Classroom/",
+  "display": "standalone",
+  "background_color": "#f5f0e8",
+  "theme_color": "#3a5a7a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://mjursic-calm.github.io/CalmAM-Classroom/calm-icon-abc.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
