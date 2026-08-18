@@ -321,20 +321,21 @@ function StrategiesStrip() {
 }
 
 // ── ABC DETAIL SCREEN ─────────────────────────────────────────────────────────
-function ABCDetail({ student, prefillBehaviour, defaultLocation, onSave, onBack }) {
-  const [antecedent, setAntecedent] = useState("");
-  const [behaviour, setBehaviour]   = useState(prefillBehaviour || "");
-  const [teacherC,  setTeacherC]    = useState("");
-  const [studentC,  setStudentC]    = useState("");
-  const [severity,  setSeverity]    = useState(0);
-  const [location,  setLocation]    = useState(defaultLocation || "");
+function ABCDetail({ student, prefillBehaviour, defaultLocation, existingEntry, onSave, onBack }) {
+  const editing = !!existingEntry;
+  const [antecedent, setAntecedent] = useState(existingEntry?.antecedent || "");
+  const [behaviour, setBehaviour]   = useState(existingEntry?.behaviour || prefillBehaviour || "");
+  const [teacherC,  setTeacherC]    = useState(existingEntry?.teacherC || "");
+  const [studentC,  setStudentC]    = useState(existingEntry?.studentC || "");
+  const [severity,  setSeverity]    = useState(existingEntry?.severity || 0);
+  const [location,  setLocation]    = useState(existingEntry?.location || defaultLocation || "");
   const [saved, setSaved]           = useState(false);
-  const ts = useRef(new Date().toISOString());
+  const ts = useRef(existingEntry?.timestamp || new Date().toISOString());
 
   const canSave = severity > 0;
 
   function handleSave() {
-    onSave({ id:Date.now(), timestamp:ts.current, antecedent, behaviour, teacherC, studentC, severity, location, notes:"" });
+    onSave({ id: existingEntry?.id || Date.now(), timestamp: ts.current, antecedent, behaviour, teacherC, studentC, severity, location, notes: existingEntry?.notes || "" });
     setSaved(true);
     setTimeout(() => onBack(), 700);
   }
@@ -362,8 +363,8 @@ function ABCDetail({ student, prefillBehaviour, defaultLocation, onSave, onBack 
         <div style={{ display:"flex", alignItems:"center", gap:12 }}>
           <button onClick={onBack} style={{ background:"none", border:"1px solid #b8ccd8", color:"#f5f0e8", borderRadius:8, padding:"6px 12px", cursor:"pointer", fontSize:13 }}>← Back</button>
           <div>
-            <div style={{ fontSize:17, fontFamily:"'Inter',sans-serif", color:"#f5f0e8" }}>{student.name} — Detail</div>
-            <div style={{ fontSize:11, color:"#3a5a7a" }}>{formatDate(ts.current)}</div>
+            <div style={{ fontSize:17, fontFamily:"'Inter',sans-serif", color:"#f5f0e8" }}>{student.name} — {editing ? "Edit Incident" : "Detail"}</div>
+            <div style={{ fontSize:11, color:"#b8ccd8" }}>{formatDate(ts.current)}</div>
           </div>
         </div>
       </div>
@@ -489,7 +490,7 @@ function ABCDetail({ student, prefillBehaviour, defaultLocation, onSave, onBack 
 }
 
 // ── NOTES SCREEN ──────────────────────────────────────────────────────────────
-function NotesScreen({ student, entries, onUpdateNote, onBack }) {
+function NotesScreen({ student, entries, onUpdateNote, onEditEntry, onBack }) {
   const [editId, setEditId] = useState(null);
   const [noteText, setNoteText] = useState("");
   const sorted = [...entries].sort((a,b) => new Date(b.timestamp)-new Date(a.timestamp));
@@ -510,14 +511,18 @@ function NotesScreen({ student, entries, onUpdateNote, onBack }) {
             <div key={entry.id} style={{ background:"#e8e0cc", borderRadius:12, padding:14, marginBottom:12, border:"1px solid #a0b0c0" }}>
               <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}>
                 <span style={{ fontSize:11, color:"#3a5a7a" }}>{formatShort(entry.timestamp)}</span>
-                <span style={{ fontSize:11, fontWeight:700, padding:"2px 8px", borderRadius:5, background:`${SEV_COLOR[entry.severity]}22`, color:SEV_COLOR[entry.severity] }}>S{entry.severity}</span>
+                <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+                  <span style={{ fontSize:11, fontWeight:700, padding:"2px 8px", borderRadius:5, background:`${SEV_COLOR[entry.severity]}22`, color:SEV_COLOR[entry.severity] }}>S{entry.severity}</span>
+                  <button onClick={() => onEditEntry(entry)} style={{ fontSize:11, color:"#3a5a7a", background:"none", border:"1px solid #a0b0c0", borderRadius:6, padding:"2px 8px", cursor:"pointer" }}>✏️ Edit</button>
+                </div>
               </div>
               {beh && <div style={{ fontSize:12, color:beh.color, marginBottom:4 }}>{beh.icon} {beh.label}</div>}
+              {entry.location && <div style={{ fontSize:11, color:"#4a6a7a", marginBottom:4 }}>📍 {entry.location}</div>}
               {editId === entry.id ? (
                 <div>
                   <textarea value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="Notes about this incident..." style={{ width:"100%", padding:"10px 12px", borderRadius:8, border:"1px solid #3a5a7a", background:"#f5f0e8", color:"#1a2a3a", fontFamily:"'DM Sans',sans-serif", fontSize:13, resize:"vertical", minHeight:80, lineHeight:1.6 }} />
                   <div style={{ display:"flex", gap:8, marginTop:8 }}>
-                    <button onClick={() => { onUpdateNote(student.id, entry.id, noteText); setEditId(null); }} style={{ flex:1, padding:8, borderRadius:8, background:"#1a5a7a", color:"#1a2a3a", border:"none", cursor:"pointer", fontSize:13 }}>Save</button>
+                    <button onClick={() => { onUpdateNote(student.id, entry.id, noteText); setEditId(null); }} style={{ flex:1, padding:8, borderRadius:8, background:"#1a5a7a", color:"#ffffff", border:"none", cursor:"pointer", fontSize:13 }}>Save</button>
                     <button onClick={() => setEditId(null)} style={{ padding:"8px 14px", borderRadius:8, background:"none", color:"#3a5a7a", border:"1px solid #a0b0c0", cursor:"pointer", fontSize:13 }}>Cancel</button>
                   </div>
                 </div>
@@ -680,16 +685,17 @@ function InsightsScreen({ student, entries, onBack }) {
 }
 
 // ── STUDENT SCREEN ────────────────────────────────────────────────────────────
-function StudentScreen({ student, entries, settings, onQuickLog, onFullLog, onBack, onUpdateNote, onDelete }) {
+function StudentScreen({ student, entries, settings, onQuickLog, onFullLog, onUpdateEntry, onBack, onUpdateNote, onDelete }) {
   const [view, setView]           = useState("menu");
   const [overlay, setOverlay]     = useState(null);
   const [prefillBeh, setPrefillBeh] = useState("");
+  const [editEntry, setEditEntry] = useState(null);
 
   // depth 1 = student menu, depth 2 = sub-screen
   const depth = (view !== "menu" || overlay) ? 2 : 1;
   useAndroidBack(depth, () => {
     if (overlay) { setOverlay(null); return; }
-    if (view !== "menu") setView("menu");
+    if (view !== "menu") { setView("menu"); setEditEntry(null); }
     else onBack();
   });
 
@@ -699,8 +705,8 @@ function StudentScreen({ student, entries, settings, onQuickLog, onFullLog, onBa
     setOverlay(behId);
   }
 
-  if (view === "detail") return <ABCDetail student={student} prefillBehaviour={prefillBeh} defaultLocation={settings.location} onSave={onFullLog} onBack={() => setView("menu")} />;
-  if (view === "notes")   return <NotesScreen student={student} entries={entries} onUpdateNote={onUpdateNote} onBack={() => setView("menu")} />;
+  if (view === "detail") return <ABCDetail student={student} prefillBehaviour={prefillBeh} defaultLocation={settings.location} existingEntry={editEntry} onSave={e => { editEntry ? onUpdateEntry(e) : onFullLog(e); }} onBack={() => { setView("menu"); setEditEntry(null); }} />;
+  if (view === "notes")   return <NotesScreen student={student} entries={entries} onUpdateNote={onUpdateNote} onEditEntry={e => { setEditEntry(e); setView("detail"); }} onBack={() => setView("menu")} />;
   if (view === "insights") return <InsightsScreen student={student} entries={entries} onBack={() => setView("menu")} />;
   if (view === "tdsb")   return <TDSBExportScreen student={student} entries={entries} settings={settings} onBack={() => setView("menu")} />;
 
@@ -966,6 +972,9 @@ function App() {
   function fullLog(sid, entry) {
     setData(d => ({ ...d, incidents:{ ...d.incidents, [sid]:[...(d.incidents[sid]||[]), entry] } }));
   }
+  function updateEntry(sid, entry) {
+    setData(d => ({ ...d, incidents: { ...d.incidents, [sid]: (d.incidents[sid]||[]).map(e => e.id===entry.id ? entry : e) } }));
+  }
   function updateNote(sid, eid, notes) {
     setData(d => ({ ...d, incidents:{ ...d.incidents, [sid]:(d.incidents[sid]||[]).map(e=>e.id===eid?{...e,notes}:e) } }));
   }
@@ -994,6 +1003,7 @@ function App() {
         settings={data.settings}
         onQuickLog={e => quickLog(selected, e)}
         onFullLog={e => fullLog(selected, e)}
+        onUpdateEntry={e => updateEntry(selected, e)}
         onBack={handleBack}
         onUpdateNote={updateNote}
         onDelete={deleteStudent}
