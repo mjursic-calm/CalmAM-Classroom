@@ -1,4 +1,4 @@
-const CACHE_NAME = 'calmabc-v2';
+const CACHE_NAME = 'calmabc-v3';
 const urlsToCache = ['/CalmAM-Classroom/'];
 
 self.addEventListener('install', event => {
