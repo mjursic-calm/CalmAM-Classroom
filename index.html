@@ -24,7 +24,7 @@ button:focus { outline: none; }
 textarea:focus { outline: none; }
 input:focus { outline: none; }
 .overlay-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 100; display: flex; align-items: flex-end; justify-content: center; padding: 0; }
-.strategy-card { background: #F2EEE2; border-radius: 20px 20px 0 0; width: 100%; max-width: 600px; padding: 24px 20px 36px; border-top: 3px solid #2C5170; max-height: 88vh; overflow-y: auto; }
+.strategy-card { background: #FFFFFF; border-radius: 20px 20px 0 0; width: 100%; max-width: 600px; padding: 24px 20px 36px; border-top: 3px solid #2C5170; max-height: 88vh; overflow-y: auto; }
 </style>
 </head>
 <body>
@@ -274,7 +274,7 @@ function StrategyOverlay({ behaviour, onClose }) {
               <div style={{ fontSize:11, color:"#2C5170", fontStyle:"italic" }}>{beh.desc}</div>
             </div>
           </div>
-          <button onClick={onClose} style={{ background:"none", border:"1px solid #B7C2CC", color:"#2C5170", borderRadius:8, padding:"6px 12px", cursor:"pointer", fontSize:13 }}><Icon name="x" size={13} style={{marginRight:4}}/>Done</button>
+          <button onClick={onClose} style={{ background:"none", border:"1px solid #B7C2CC", color:"#2C5170", borderRadius:8, padding:"6px 12px", cursor:"pointer", fontSize:13 }}><Icon name="back" size={13} style={{marginRight:4}}/>Back</button>
         </div>
 
         {beh.strategies.map((strat, si) => (
@@ -291,7 +291,7 @@ function StrategyOverlay({ behaviour, onClose }) {
                   <div style={{ fontSize:11, color:"#2C5170", fontStyle:"italic" }}>{sc.note}</div>
                 </div>
               ))}
-              <div style={{ marginTop:12, background:"#F2EEE2", borderRadius:8, padding:"10px 12px", border:"1px solid #3a5a6a" }}>
+              <div style={{ marginTop:12, background:"#F4F6F8", borderRadius:8, padding:"10px 12px", border:"1px solid #B7C2CC" }}>
                 <div style={{ fontSize:11, color:"#2C5170", fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:4 }}>Non-Verbal</div>
                 <div style={{ fontSize:13, color:"#4B5966", lineHeight:1.6 }}>{strat.nonverbal}</div>
               </div>
