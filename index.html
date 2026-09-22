@@ -417,7 +417,7 @@ function ABCDetail({ student, prefillBehaviour, defaultLocation, existingEntry, 
         <div style={{ background:"#FFFFFF", borderRadius:12, padding:14, marginBottom:12 }}>
           <div style={{ fontSize:11, color:"#4E6578", fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:8 }}>Location</div>
           <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
-            {[...(defaultLocation ? [defaultLocation] : []), "Hallway", "Gym", "Washroom", "Library", "Cafeteria", "Outdoor / Yard", "Other"].map(loc => (
+            {[...(defaultLocation ? [defaultLocation] : []), "Classroom", "Hallway", "Gym", "Washroom", "Library", "Cafeteria", "Outdoor / Yard", "Other"].map(loc => (
               <button key={loc} onClick={() => setLocation(location===loc?"":loc)} style={{
                 padding:"8px 12px", borderRadius:9,
                 border: location===loc ? "2px solid #7ab8e0" : "1.5px solid #B7C2CC",
@@ -698,7 +698,7 @@ function InsightsScreen({ student, entries, onBack }) {
 
         {entries.length >= 3 && topBeh && topAnt && (
           <div style={{ background:"#16283B", borderRadius:12, padding:16, marginBottom:32, border:"1px solid #2C5170" }}>
-            <div style={{ fontSize:11, color:"#6FCF9E", fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:10 }}>Spec Ed Meeting Summary</div>
+            <div style={{ fontSize:11, color:"#6FCF9E", fontWeight:600, letterSpacing:"0.04em", textTransform:"uppercase", marginBottom:10 }}>Spec Ed Meeting Summary</div>
             <p style={{ fontSize:13, color:"#D7E3ED", lineHeight:1.8 }}>
               Over {entries.length} logged incidents, {student.name}'s most frequent trigger was <strong style={{ color:"#7ab8e0" }}>{topAnt.label}</strong> ({topAnt.count}x), with the most common behaviour being <strong style={{ color:"#e0a84a" }}>{topBeh.label}</strong> ({topBeh.count}x).{topTC && <> Most frequent teacher response: <strong style={{ color:tierColor(TEACHER_CONSEQUENCES.find(x=>x.id===topTC.label.toLowerCase().replace(/ /g,""))?.tier||"amber") }}>{topTC.label}</strong>.</>}{topSC && <> Student experience most often logged as: <strong style={{ color:tierColor(STUDENT_CONSEQUENCES.find(x=>x.label===topSC.label)?.tier||"amber") }}>{topSC.label}</strong>.</>}{peakTime && <> Incidents cluster most heavily during <strong style={{ color:"#e0c84a" }}>{peakTime[0]}</strong>.</>}
             </p>
