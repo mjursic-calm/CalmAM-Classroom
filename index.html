@@ -73,7 +73,7 @@ function useAndroidBack(depth, onBack) {
 }
 
 const STORAGE_KEY = "calmam-classroom-v2";
-const DEFAULT_SETTINGS = { teacherName: "", school: "", location: "" };
+const DEFAULT_SETTINGS = { teacherName: "", school: "", location: "", showOverlay: true };
 function load() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch { return {}; } }
 function save(d) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); } catch {} }
 
@@ -350,7 +350,7 @@ function ABCDetail({ student, prefillBehaviour, defaultLocation, existingEntry, 
   const editing = !!existingEntry;
   const [antecedent, setAntecedent] = useState(existingEntry?.antecedent || "");
   const [behaviour, setBehaviour]   = useState(existingEntry?.behaviour || prefillBehaviour || "");
-  const [teacherC,  setTeacherC]    = useState(existingEntry?.teacherC || "");
+  const [teacherC,  setTeacherC]    = useState(existingEntry?.teacherC ? (Array.isArray(existingEntry.teacherC) ? existingEntry.teacherC : [existingEntry.teacherC]) : []);
   const [studentC,  setStudentC]    = useState(existingEntry?.studentC || "");
   const [severity,  setSeverity]    = useState(existingEntry?.severity || 0);
   const [location,  setLocation]    = useState(existingEntry?.location || defaultLocation || "");
@@ -480,7 +480,7 @@ function ABCDetail({ student, prefillBehaviour, defaultLocation, existingEntry, 
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
             <div>
               <div style={{ fontSize:11, color:C_GREEN, marginBottom:6, fontWeight:600 }}>TEACHER RESPONSE</div>
-              {TEACHER_CONSEQUENCES.map(item => <ConseqBtn key={item.id} item={item} selected={teacherC===item.id} onTap={v => setTeacherC(teacherC===v?"":v)} />)}
+              {TEACHER_CONSEQUENCES.map(item => <ConseqBtn key={item.id} item={item} selected={Array.isArray(teacherC) ? teacherC.includes(item.id) : teacherC===item.id} onTap={v => setTeacherC(prev => { const arr = Array.isArray(prev) ? prev : (prev ? [prev] : []); return arr.includes(v) ? arr.filter(x=>x!==v) : [...arr, v]; })} />)}
             </div>
             <div>
               <div style={{ fontSize:11, color:"#c07ae0", marginBottom:6, fontWeight:600 }}>STUDENT EXPERIENCE</div>
@@ -726,8 +726,8 @@ function StudentScreen({ student, entries, settings, onQuickLog, onFullLog, onUp
 
   function handleQuickTap(behId) {
     const ts = new Date().toISOString();
-    onQuickLog({ id:Date.now(), timestamp:ts, antecedent:"", behaviour:behId, teacherC:"", studentC:"", severity:3, notes:"" });
-    setOverlay(behId);
+    onQuickLog({ id:Date.now(), timestamp:ts, antecedent:"", behaviour:behId, teacherC:[], studentC:"", severity:3, notes:"" });
+    if (settings.showOverlay !== false) setOverlay(behId);
   }
 
   if (view === "detail") return <ABCDetail student={student} prefillBehaviour={prefillBeh} defaultLocation={settings.location} existingEntry={editEntry} onSave={e => { editEntry ? onUpdateEntry(e) : onFullLog(e); }} onBack={() => { setView("menu"); setEditEntry(null); }} />;
@@ -853,6 +853,24 @@ function SettingsScreen({ settings, onSave, onBack }) {
             </div>
           ))}
           <button onClick={handleSave} style={{ width:"100%", padding:12, background:"#1F3D57", color:"#ffffff", border:"none", borderRadius:8, cursor:"pointer", fontSize:14, fontWeight:700, marginTop:4 }}>Save Settings</button>
+          <div style={{ marginTop:16, display:"flex", alignItems:"center", justifyContent:"space-between", background:"#F4F6F8", borderRadius:8, padding:"12px 14px", border:"1px solid #B7C2CC" }}>
+            <div>
+              <div style={{ fontSize:13, fontWeight:600, color:"#1C2733" }}>Strategy Overlay</div>
+              <div style={{ fontSize:11, color:"#4B5966", marginTop:2 }}>Show scripts after quick-tap behaviour</div>
+            </div>
+            <button onClick={() => setForm(f => ({...f, showOverlay: !f.showOverlay}))} style={{
+              width:48, height:26, borderRadius:13, border:"none", cursor:"pointer",
+              background: form.showOverlay ? "#2C5170" : "#B7C2CC",
+              position:"relative", transition:"background 0.2s"
+            }}>
+              <div style={{
+                width:20, height:20, borderRadius:10, background:"white",
+                position:"absolute", top:3,
+                left: form.showOverlay ? 25 : 3,
+                transition:"left 0.2s"
+              }} />
+            </button>
+          </div>
         </div>
         <div style={{ fontSize:12, color:"#4B5966", fontStyle:"italic", textAlign:"center" }}>
           These details pre-fill the TDSB ABC Data Recording Chart export.
@@ -871,7 +889,10 @@ function TDSBExportScreen({ student, entries, settings, onBack }) {
 
   function buildConsequence(e) {
     const parts = [];
-    if (e.teacherC) parts.push("Teacher: " + tcLabel(e.teacherC));
+    if (e.teacherC) {
+      const tcs = Array.isArray(e.teacherC) ? e.teacherC : [e.teacherC];
+      if (tcs.length > 0) parts.push("Teacher: " + tcs.map(tcLabel).join(" / "));
+    }
     if (e.studentC) parts.push("Student: " + scLabel(e.studentC));
     return parts.join(" / ") || "—";
   }
