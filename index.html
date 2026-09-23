@@ -938,7 +938,7 @@ function SettingsScreen({ settings, onSave, onBack }) {
       <div style={{ padding:16, maxWidth:600, margin:"0 auto" }}>
         <div style={{ background:"#FFFFFF", borderRadius:12, padding:16, marginBottom:14 }}>
           <div style={{ fontSize:13, color:"#2C5170", fontWeight:600, marginBottom:14 }}>Teacher Information</div>
-          {[["teacherName","Teacher Name","e.g. M. Jursic"],["school","School","e.g. Queen Alexandra PS"],["location","Default Location","e.g. Room 204"]].map(([key,label,ph]) => (
+          {[["teacherName","Teacher Name","Teacher Name"],["school","School","School Name"],["location","Default Location","e.g. Room 204"]].map(([key,label,ph]) => (
             <div key={key} style={{ marginBottom:12 }}>
               <div style={{ fontSize:12, color:"#4B5966", fontWeight:600, marginBottom:4 }}>{label}</div>
               <input value={form[key]} onChange={e => setForm(f => ({...f,[key]:e.target.value}))}
@@ -1177,9 +1177,11 @@ function App() {
               <button onClick={() => setShowHelp(false)} style={{ background:"none", border:"none", color:"#4B5966", fontSize:13, cursor:"pointer" }}>Close</button>
             </div>
             <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Add a student</strong> using initials or a first name, whatever fits your record-keeping comfort level.</p>
-            <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Tap a student's tile</strong> right after a behaviour incident to log it. The quick-log options are built for speed, just a few taps, roughly ten seconds, while the moment is still fresh.</p>
-            <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Use Full Log</strong> when you have a moment afterward to add more context, an antecedent, the behaviour itself, and the consequence.</p>
-            <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733" }}>Everything saves automatically as you go, there's no save button to remember. Insights for each student build up the more entries you log.</p>
+            <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Tap a behaviour button</strong> right after an incident — that's the whole fast path. Roughly ten seconds. Each tap creates a numbered, timestamped incident in that student's record.</p>
+            <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Support Requested</strong> is a quick-log button too — tap it the moment you call for help, no need to open Full ABC Detail.</p>
+            <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Full ABC Detail</strong> is for when you have a moment — lunch, prep, end of day. Open it to see your logged incidents for that student, each showing the time and behaviour. Tap any incident to add antecedent, consequence, location, severity, and notes.</p>
+            <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Strategy scripts</strong> are off by default to keep the fast path clean. Turn them on in Settings under Strategy Overlay. When on, tapping any behaviour button brings up in-the-moment scripts and non-verbal strategies specific to that behaviour. Tap the back button to dismiss and return to the student screen.</p>
+            <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733" }}><strong>Insights</strong> build up the more you log. The Spec Ed Meeting Summary at the bottom is designed to go straight to your Team meeting. Export the TDSB ABC Chart when you're ready to bring documentation.</p>
           </div>
         )}
 
