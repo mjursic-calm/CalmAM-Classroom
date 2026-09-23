@@ -104,7 +104,7 @@ const TEACHER_CONSEQUENCES = [
   { id:"ignore",      label:"Strategic Ignoring",      desc:"Withheld attention deliberately",       tier:"amber" },
   { id:"privilege",   label:"Loss of Privilege",       desc:"Recess, free time removed",             tier:"amber" },
   { id:"restitution", label:"Reparation",              desc:"Clean up, apologize, make amends",      tier:"amber" },
-  { id:"admin",       label:"Called Admin / Colleague", desc:"Support requested from another adult", tier:"red" },
+  { id:"admin",       label:"Support Requested",       desc:"Admin or colleague called for help",   tier:"red" },
 ];
 
 const STUDENT_CONSEQUENCES = [
@@ -369,12 +369,13 @@ function ABCDetail({ student, prefillBehaviour, defaultLocation, existingEntry, 
   function ConseqBtn({ item, selected, onTap }) {
     const color = tierColor(item.tier);
     const isGreen = item.tier === "green";
+    const isRed = item.tier === "red";
     return (
       <button onClick={() => onTap(item.id)} style={{
         padding:"8px 10px", borderRadius:8, textAlign:"left",
-        border: selected ? `2px solid ${color}` : `1.5px solid ${isGreen ? color+"66" : "#B7C2CC"}`,
-        background: selected ? `${color}20` : isGreen ? `${color}10` : "#F4F6F8",
-        color: selected ? color : isGreen ? color : "#4B5966",
+        border: selected ? `2px solid ${color}` : `1.5px solid ${isGreen ? color+"66" : isRed ? color+"88" : "#B7C2CC"}`,
+        background: selected ? `${color}20` : isGreen ? `${color}10` : isRed ? `${color}12` : "#F4F6F8",
+        color: selected ? color : isGreen ? color : isRed ? color : "#4B5966",
         cursor:"pointer", transition:"all 0.15s", marginBottom:6, width:"100%"
       }}>
         <div style={{ fontSize:12, fontWeight:600, letterSpacing:"-0.01em" }}>{item.label}</div>
