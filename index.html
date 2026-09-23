@@ -73,7 +73,7 @@ function useAndroidBack(depth, onBack) {
 }
 
 const STORAGE_KEY = "calmam-classroom-v2";
-const DEFAULT_SETTINGS = { teacherName: "", school: "", location: "", showOverlay: true };
+const DEFAULT_SETTINGS = { teacherName: "", school: "", location: "", showOverlay: false };
 function load() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch { return {}; } }
 function save(d) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); } catch {} }
 
@@ -85,6 +85,7 @@ const SEV_LABEL  = ["","Minimal","Mild","Moderate","Significant","Severe"];
 const C_GREEN  = "#4a9a6a";  // prosocial / de-escalating
 const C_AMBER  = "#e0c84a";  // ambiguous / context-dependent
 const C_RED    = "#c03030";  // maintains or escalates cycle
+const C_MAUVE  = "#9B5E9B";  // support requested
 
 // ── DATA ──────────────────────────────────────────────────────────────────────
 const ANTECEDENTS = [
@@ -104,7 +105,7 @@ const TEACHER_CONSEQUENCES = [
   { id:"ignore",      label:"Strategic Ignoring",      desc:"Withheld attention deliberately",       tier:"amber" },
   { id:"privilege",   label:"Loss of Privilege",       desc:"Recess, free time removed",             tier:"amber" },
   { id:"restitution", label:"Reparation",              desc:"Clean up, apologize, make amends",      tier:"amber" },
-  { id:"admin",       label:"Support Requested",       desc:"Admin or colleague called for help",   tier:"red" },
+  { id:"admin",       label:"Support Requested",       desc:"Admin or colleague called for help",   tier:"mauve" },
 ];
 
 const STUDENT_CONSEQUENCES = [
@@ -122,6 +123,7 @@ const STUDENT_CONSEQUENCES = [
 function tierColor(tier) {
   if (tier === "green") return C_GREEN;
   if (tier === "red")   return C_RED;
+  if (tier === "mauve") return C_MAUVE;
   return C_AMBER;
 }
 
@@ -183,7 +185,7 @@ const QUICK_BEHAVIOURS = [
     id: "avoidance",
     label: "Avoidance",
     icon: "eye-off",
-    desc: "Refusing, head down, hiding materials",
+    desc: "Refusing, hiding materials, elopement",
     color: "#7ab8e0",
     strategies: [
       {
@@ -228,7 +230,7 @@ const QUICK_BEHAVIOURS = [
     id: "aggression",
     label: "Aggression",
     icon: "bolt",
-    desc: "Pushing, shoving, physical outburst",
+    desc: "Swearing, physical outburst, property destruction",
     color: "#c03030",
     strategies: [
       {
@@ -250,6 +252,14 @@ const QUICK_BEHAVIOURS = [
         nonverbal: "Stand at an angle — not face-to-face. Lower your body slightly. Soft eyes. No pointing. No raised hands.",
       },
     ],
+  },
+  {
+    id: "support",
+    label: "Support Requested",
+    icon: "phone-call",
+    desc: "Admin or colleague called for help",
+    color: C_MAUVE,
+    strategies: [],
   },
 ];
 
@@ -370,12 +380,13 @@ function ABCDetail({ student, prefillBehaviour, defaultLocation, existingEntry, 
     const color = tierColor(item.tier);
     const isGreen = item.tier === "green";
     const isRed = item.tier === "red";
+    const isMauve = item.tier === "mauve";
     return (
       <button onClick={() => onTap(item.id)} style={{
         padding:"8px 10px", borderRadius:8, textAlign:"left",
-        border: selected ? `2px solid ${color}` : `1.5px solid ${isGreen ? color+"66" : isRed ? color+"88" : "#B7C2CC"}`,
-        background: selected ? `${color}20` : isGreen ? `${color}10` : isRed ? `${color}12` : "#F4F6F8",
-        color: selected ? color : isGreen ? color : isRed ? color : "#4B5966",
+        border: selected ? `2px solid ${color}` : `1.5px solid ${isGreen ? color+"66" : isRed ? color+"88" : isMauve ? color+"88" : "#B7C2CC"}`,
+        background: selected ? `${color}20` : isGreen ? `${color}10` : isRed ? `${color}12` : isMauve ? `${color}12` : "#F4F6F8",
+        color: selected ? color : isGreen ? color : isRed ? color : isMauve ? color : "#4B5966",
         cursor:"pointer", transition:"all 0.15s", marginBottom:6, width:"100%"
       }}>
         <div style={{ fontSize:12, fontWeight:600, letterSpacing:"-0.01em" }}>{item.label}</div>
@@ -729,7 +740,7 @@ function StudentScreen({ student, entries, settings, onQuickLog, onFullLog, onUp
   function handleQuickTap(behId) {
     const ts = new Date().toISOString();
     onQuickLog({ id:Date.now(), timestamp:ts, antecedent:"", behaviour:behId, teacherC:[], studentC:"", severity:3, notes:"" });
-    if (settings.showOverlay !== false) setOverlay(behId);
+    if (settings.showOverlay === true) setOverlay(behId);
   }
 
   if (view === "detail") return <ABCDetail student={student} prefillBehaviour={prefillBeh} defaultLocation={settings.location} existingEntry={editEntry} onSave={e => { editEntry ? onUpdateEntry(e) : onFullLog(e); }} onBack={() => { setView("menu"); setEditEntry(null); }} />;
@@ -760,24 +771,50 @@ function StudentScreen({ student, entries, settings, onQuickLog, onFullLog, onUp
         {/* Quick behaviour buttons */}
         <div style={{ background:"#FFFFFF", borderRadius:12, padding:14, marginBottom:12 }}>
           <div style={{ fontSize:11, color:"#8A6D0E", fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:10 }}>Quick Log — Tap Behaviour</div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-            {QUICK_BEHAVIOURS.map(beh => (
-              <button key={beh.id} onClick={() => handleQuickTap(beh.id)} style={{
-                padding:"14px 12px", borderRadius:9,
-                background:"#FFFFFF",
-                borderLeft: beh.id === "positive" ? `4px solid ${beh.color}` : `3px solid ${beh.color}`,
-                borderTop:"1px solid #E4E7EA", borderRight:"1px solid #E4E7EA", borderBottom:"1px solid #E4E7EA",
-                color:"#16283B", cursor:"pointer", textAlign:"left",
-                transition:"all 0.15s"
-              }}>
-                <div style={{ marginBottom:4 }}><Icon name={beh.icon} size={20} color={beh.color}/></div>
-                <div style={{ fontSize:14, fontWeight:700, color: beh.color }}>{beh.label}</div>
-                <div style={{ fontSize:11, color:"#4B5966", marginTop:2, fontStyle:"italic" }}>{beh.desc}</div>
-              </button>
-            ))}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, alignItems:"stretch" }}>
+            {/* Column 1: Disruptive, Avoidance, Aggression */}
+            <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+              {QUICK_BEHAVIOURS.filter(b => ["disruptive","avoidance","aggression"].includes(b.id)).map(beh => (
+                <button key={beh.id} onClick={() => handleQuickTap(beh.id)} style={{
+                  flex:1, padding:"14px 12px", borderRadius:9, background:"#FFFFFF",
+                  borderLeft:`3px solid ${beh.color}`,
+                  borderTop:"1px solid #E4E7EA", borderRight:"1px solid #E4E7EA", borderBottom:"1px solid #E4E7EA",
+                  color:"#16283B", cursor:"pointer", textAlign:"left", transition:"all 0.15s"
+                }}>
+                  <div style={{ marginBottom:4 }}><Icon name={beh.icon} size={20} color={beh.color}/></div>
+                  <div style={{ fontSize:14, fontWeight:700, color:beh.color }}>{beh.label}</div>
+                  <div style={{ fontSize:11, color:"#4B5966", marginTop:2, fontStyle:"italic" }}>{beh.desc}</div>
+                </button>
+              ))}
+            </div>
+            {/* Column 2: Off-Task, Engaging, blank space */}
+            <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+              {QUICK_BEHAVIOURS.filter(b => ["offtask","positive"].includes(b.id)).map(beh => (
+                <button key={beh.id} onClick={() => handleQuickTap(beh.id)} style={{
+                  flex:1, padding:"14px 12px", borderRadius:9, background:"#FFFFFF",
+                  borderLeft: beh.id === "positive" ? `4px solid ${beh.color}` : `3px solid ${beh.color}`,
+                  borderTop:"1px solid #E4E7EA", borderRight:"1px solid #E4E7EA", borderBottom:"1px solid #E4E7EA",
+                  color:"#16283B", cursor:"pointer", textAlign:"left", transition:"all 0.15s"
+                }}>
+                  <div style={{ marginBottom:4 }}><Icon name={beh.icon} size={20} color={beh.color}/></div>
+                  <div style={{ fontSize:14, fontWeight:700, color:beh.color }}>{beh.label}</div>
+                  <div style={{ fontSize:11, color:"#4B5966", marginTop:2, fontStyle:"italic" }}>{beh.desc}</div>
+                </button>
+              ))}
+              {/* Blank space matching height of Aggression button */}
+              <div style={{ flex:1 }} />
+            </div>
           </div>
-          <button onClick={() => { setPrefillBeh(""); setView("detail"); }} style={{
+          {/* Support Requested - full width mauve */}
+          <button onClick={() => handleQuickTap("support")} style={{
             width:"100%", marginTop:10, padding:"12px", borderRadius:8,
+            background:`${C_MAUVE}12`, border:`1.5px solid ${C_MAUVE}88`,
+            color:C_MAUVE, cursor:"pointer", fontSize:14, fontWeight:700,
+            letterSpacing:"0.03em"
+          }}>Support Requested</button>
+          {/* Full ABC Detail */}
+          <button onClick={() => { setPrefillBeh(""); setView("detail"); }} style={{
+            width:"100%", marginTop:8, padding:"12px", borderRadius:8,
             background:"#1F3D57",
             color:"#ffffff", border:"none",
             cursor:"pointer", fontSize:14, fontWeight:700,
