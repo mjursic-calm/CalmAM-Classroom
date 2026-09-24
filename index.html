@@ -1223,7 +1223,7 @@ function App() {
             fontFamily:"'Inter',sans-serif"
           }}>Getting Started</button>
         ) : (
-          <div style={{ background:"#fff", borderRadius:12, padding:"16px 18px", marginBottom:14, border:"1px solid #2C517030" }}>
+          <div style={{ background:"#fff", borderRadius:12, padding:"16px 18px", marginBottom:14, border:"1px solid #2C517030", maxHeight:"60vh", overflowY:"auto" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
               <div style={{ fontSize:14, fontWeight:600, color:"#2C5170" }}>Getting Started</div>
               <button onClick={() => setShowHelp(false)} style={{ background:"none", border:"none", color:"#4B5966", fontSize:13, cursor:"pointer" }}>Close</button>
