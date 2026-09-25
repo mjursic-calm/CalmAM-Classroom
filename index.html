@@ -72,6 +72,7 @@ function useAndroidBack(depth, onBack) {
   }, [onBack]);
 }
 
+const APP_VERSION = "v22";
 const STORAGE_KEY = "calmam-classroom-v2";
 const DEFAULT_SETTINGS = { teacherName: "", school: "", location: "", showOverlay: false };
 function load() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch { return {}; } }
@@ -370,15 +371,20 @@ function ABCDetail({ student, prefillBehaviour, defaultLocation, existingEntry, 
   const [studentC,  setStudentC]    = useState(existingEntry?.studentC || "");
   const [severity,  setSeverity]    = useState(existingEntry?.severity || 0);
   const [location,  setLocation]    = useState(existingEntry?.location || defaultLocation || "");
-  const [people,    setPeople]      = useState(Array.isArray(existingEntry?.people) ? existingEntry.people : []);
+  const [people,    setPeople]      = useState(() => {
+    const ex = existingEntry?.people;
+    if (existingEntry?.peopleSet && Array.isArray(ex)) return ex;   // teacher already chose (even if none)
+    if (Array.isArray(ex) && ex.length) return ex;
+    return ["Teacher"];                                               // default: the person logging is involved
+  });
   const [notes,     setNotes]       = useState(existingEntry?.notes || "");
   const [saved, setSaved]           = useState(false);
   const ts = useRef(existingEntry?.timestamp || new Date().toISOString());
 
-  const canSave = severity > 0;
+  const canSave = true; // every field is optional — nothing blocks Save
 
   function handleSave() {
-    onSave({ id: existingEntry?.id || Date.now(), timestamp: ts.current, antecedent, behaviour, teacherC, studentC, severity, location, people, notes });
+    onSave({ id: existingEntry?.id || Date.now(), timestamp: ts.current, antecedent, behaviour, teacherC, studentC, severity, location, people, peopleSet:true, notes });
     setSaved(true);
     setTimeout(() => onBack(), 700);
   }
@@ -435,10 +441,10 @@ function ABCDetail({ student, prefillBehaviour, defaultLocation, existingEntry, 
 
         {/* Severity */}
         <div style={{ background:"#FFFFFF", borderRadius:12, padding:14, marginBottom:12 }}>
-          <div style={{ fontSize:11, color:"#8A6D0E", fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:8 }}>Severity *</div>
+          <div style={{ fontSize:11, color:"#8A6D0E", fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:8 }}>Severity <span style={{ textTransform:"none", letterSpacing:0, fontWeight:400, color:"#4B5966", fontStyle:"italic" }}>— optional</span></div>
           <div style={{ display:"flex", gap:8 }}>
             {[1,2,3,4,5].map(n => (
-              <button key={n} onClick={() => setSeverity(n)} style={{
+              <button key={n} onClick={() => setSeverity(severity===n ? 0 : n)} style={{
                 flex:1, padding:"12px 4px", borderRadius:10,
                 border: severity===n ? `2px solid ${SEV_COLOR[n]}` : "1.5px solid #B7C2CC",
                 background: severity===n ? `${SEV_COLOR[n]}22` : "#F4F6F8",
@@ -447,7 +453,7 @@ function ABCDetail({ student, prefillBehaviour, defaultLocation, existingEntry, 
               }}>{n}</button>
             ))}
           </div>
-          {severity > 0 && <div style={{ fontSize:12, color:SEV_COLOR[severity], marginTop:6, textAlign:"center", fontStyle:"italic" }}>{SEV_LABEL[severity]}</div>}
+          <div style={{ fontSize:12, color: severity > 0 ? SEV_COLOR[severity] : "#8B98A5", marginTop:6, textAlign:"center", fontStyle:"italic" }}>{severity > 0 ? SEV_LABEL[severity] : "Not rated"}</div>
         </div>
 
         {/* People Involved */}
@@ -553,7 +559,6 @@ function ABCDetail({ student, prefillBehaviour, defaultLocation, existingEntry, 
         }}>
           {saved ? <><Icon name="check" size={14} style={{marginRight:4}}/>Saved</> : "Save Incident"}
         </button>
-        {!canSave && <p style={{ textAlign:"center", color:"#4B5966", fontSize:12, marginTop:-28, marginBottom:32 }}>Set a severity level to save</p>}
       </div>
     </div>
   );
@@ -810,7 +815,7 @@ function InsightsScreen({ student, entries, onBack }) {
 }
 
 // ── STUDENT SCREEN ────────────────────────────────────────────────────────────
-function StudentScreen({ student, entries, settings, onQuickLog, onFullLog, onUpdateEntry, onBack, onUpdateNote, onDelete }) {
+function StudentScreen({ student, entries, settings, onQuickLog, onFullLog, onUpdateEntry, onRateSeverity, onBack, onUpdateNote, onDelete }) {
   const [view, setView]           = useState("menu");
   const [overlay, setOverlay]     = useState(null);
   const [prefillBeh, setPrefillBeh] = useState("");
@@ -827,9 +832,27 @@ function StudentScreen({ student, entries, settings, onQuickLog, onFullLog, onUp
     else onBack();
   });
 
+  // Severity strip: shows for ~3 s after a quick log. Ignore it and the incident stays "not rated".
+  const [sevStrip, setSevStrip] = useState(null); // { id, rated }
+  const stripTimer = useRef(null);
+  function openStrip(id) {
+    clearTimeout(stripTimer.current);
+    setSevStrip({ id, rated:0 });
+    stripTimer.current = setTimeout(() => setSevStrip(null), 3000);
+  }
+  function rateFromStrip(n) {
+    onRateSeverity(sevStrip.id, n);
+    clearTimeout(stripTimer.current);
+    setSevStrip({ ...sevStrip, rated:n });
+    stripTimer.current = setTimeout(() => setSevStrip(null), 1200);
+  }
+  useEffect(() => () => clearTimeout(stripTimer.current), []);
+
   function handleQuickTap(behId) {
     const ts = new Date().toISOString();
-    onQuickLog({ id:Date.now(), timestamp:ts, antecedent:"", behaviour:behId, teacherC:[], studentC:"", severity:0, people:[], notes:"" });
+    const newId = Date.now();
+    openStrip(newId);
+    onQuickLog({ id:newId, timestamp:ts, antecedent:"", behaviour:behId, teacherC:[], studentC:"", severity:0, people:["Teacher"], notes:"" });
     if (settings.showOverlay === true) setOverlay(behId);
   }
 
@@ -954,6 +977,36 @@ function StudentScreen({ student, entries, settings, onQuickLog, onFullLog, onUp
       </div>
 
       {overlay && <StrategyOverlay behaviour={overlay} onClose={() => setOverlay(null)} />}
+
+      {sevStrip && (
+        <div style={{
+          position:"fixed", left:0, right:0, zIndex:150, display:"flex", justifyContent:"center", padding:"0 12px",
+          ...(overlay ? { top:12 } : { bottom:16 })
+        }}>
+          <div style={{ width:"100%", maxWidth:520, background:"#16283B", borderRadius:14, padding:"10px 12px", boxShadow:"0 6px 24px rgba(0,0,0,0.35)" }}>
+            {sevStrip.rated ? (
+              <div style={{ color:"#F4F6F8", fontSize:13, textAlign:"center", padding:"8px 0" }}>
+                <Icon name="check" size={14} style={{marginRight:6}}/>Logged · severity {sevStrip.rated} ({SEV_LABEL[sevStrip.rated]})
+              </div>
+            ) : (
+              <>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
+                  <span style={{ color:"#BFD4E3", fontSize:12 }}>Logged. Severity? <span style={{ fontStyle:"italic", opacity:0.8 }}>(optional)</span></span>
+                  <button onClick={() => { clearTimeout(stripTimer.current); setSevStrip(null); }} style={{ background:"none", border:"none", color:"#BFD4E3", cursor:"pointer", padding:2 }}><Icon name="x" size={14}/></button>
+                </div>
+                <div style={{ display:"flex", gap:6 }}>
+                  {[1,2,3,4,5].map(n => (
+                    <button key={n} onClick={() => rateFromStrip(n)} style={{
+                      flex:1, padding:"10px 0", borderRadius:9, border:`1.5px solid ${SEV_COLOR[n]}`,
+                      background:`${SEV_COLOR[n]}33`, color:"#F4F6F8", fontSize:15, fontWeight:700, cursor:"pointer"
+                    }}>{n}</button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1056,6 +1109,7 @@ function SettingsScreen({ settings, onSave, onBack, allData }) {
 
         <div style={{ fontSize:12, color:"#4B5966", fontStyle:"italic", textAlign:"center" }}>
           These details pre-fill the TDSB ABC Data Recording Chart export.
+          <div style={{ marginTop:8, fontStyle:"normal", color:"#8B98A5" }}>calmABC {APP_VERSION}</div>
         </div>
       </div>
     </div>
@@ -1203,6 +1257,9 @@ function App() {
   function updateEntry(sid, entry) {
     setData(d => ({ ...d, incidents: { ...d.incidents, [sid]: (d.incidents[sid]||[]).map(e => e.id===entry.id ? entry : e) } }));
   }
+  function rateSeverity(sid, eid, severity) {
+    setData(d => ({ ...d, incidents:{ ...d.incidents, [sid]:(d.incidents[sid]||[]).map(e=>e.id===eid?{...e,severity}:e) } }));
+  }
   function updateNote(sid, eid, notes) {
     setData(d => ({ ...d, incidents:{ ...d.incidents, [sid]:(d.incidents[sid]||[]).map(e=>e.id===eid?{...e,notes}:e) } }));
   }
@@ -1232,6 +1289,7 @@ function App() {
         onQuickLog={e => quickLog(selected, e)}
         onFullLog={e => fullLog(selected, e)}
         onUpdateEntry={e => updateEntry(selected, e)}
+        onRateSeverity={(eid, n) => rateSeverity(selected, eid, n)}
         onBack={handleBack}
         onUpdateNote={updateNote}
         onDelete={deleteStudent}
@@ -1267,9 +1325,9 @@ function App() {
               <button onClick={() => setShowHelp(false)} style={{ background:"none", border:"none", color:"#4B5966", fontSize:13, cursor:"pointer" }}>Close</button>
             </div>
             <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Add a student</strong> using initials or a first name, whatever fits your record-keeping comfort level.</p>
-            <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Tap a behaviour button</strong> right after an incident — that's the whole fast path. Roughly ten seconds. Each tap creates a numbered, timestamped incident in that student's record.</p>
+            <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Tap a behaviour button</strong> right after an incident — that's the whole fast path. Roughly ten seconds. A severity bar pops up for a few seconds afterward; tap a number or ignore it. Each tap creates a numbered, timestamped incident in that student's record.</p>
             <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Support Requested</strong> is a quick-log button too — tap it the moment you call for help, no need to open Full ABC Detail.</p>
-            <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Full ABC Detail</strong> is for when you have a moment — lunch, prep, end of day. Open it to see your logged incidents for that student, each showing the time and behaviour. Tap any incident to add antecedent, consequence, location, people involved, severity, and notes.</p>
+            <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Full ABC Detail</strong> is for when you have a moment — lunch, prep, end of day. Open it to see your logged incidents for that student, each showing the time and behaviour. Tap any incident to add antecedent, consequence, location, people involved, severity, and notes. Every field is optional.</p>
             <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Strategy scripts</strong> are off by default to keep the fast path clean. Turn them on in Settings under Strategy Overlay. When on, tapping any behaviour button brings up in-the-moment scripts and non-verbal strategies specific to that behaviour. Tap the back button to dismiss and return to the student screen.</p>
             <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Insights</strong> build up the more you log. The Spec Ed Meeting Summary at the bottom is designed to go straight to your Team meeting. Export the TDSB ABC Chart when you're ready to bring documentation.</p>
             <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733" }}><strong>Back up your data</strong> regularly in Settings → Data Backup → Export and Share Backup. Your data lives on this device — a browser cache clear will wipe it. The backup creates a file you can share to Google Drive, email to yourself, or save anywhere. Restore from that file anytime.</p>
@@ -1320,6 +1378,7 @@ function App() {
         )}
         <div style={{ textAlign:"center", marginTop:32, paddingBottom:8 }}>
           <div style={{ fontSize:11, color:"#4B5966", fontStyle:"italic" }}>calmAM ABC © Michael Jursic 2026. All rights reserved.</div>
+          <div style={{ fontSize:11, color:"#8B98A5", marginTop:4 }}>{APP_VERSION}</div>
         </div>
       </div>
     </div>
