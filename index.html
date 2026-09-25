@@ -80,6 +80,11 @@ function save(d) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); }
 // ── COLOURS ───────────────────────────────────────────────────────────────────
 const SEV_COLOR  = ["","#4a9a6a","#8ab84a","#e0c84a","#e0883a","#c03030"];
 const SEV_LABEL  = ["","Minimal","Mild","Moderate","Significant","Severe"];
+const PEOPLE_OPTIONS = ["Teacher","EA","Peer(s)","Admin","Supply/OT","Other"];
+function SevBadge({ severity, pad = "2px 8px" }) {
+  if (!severity) return <span style={{ fontSize:11, fontWeight:600, padding:pad, borderRadius:5, background:"#E4E7EA", color:"#4B5966", fontStyle:"italic" }}>Severity not rated</span>;
+  return <span style={{ fontSize:11, fontWeight:700, padding:pad, borderRadius:5, background:`${SEV_COLOR[severity]}22`, color:SEV_COLOR[severity] }}>S{severity}</span>;
+}
 
 // Consequence tiers
 const C_GREEN  = "#4a9a6a";  // prosocial / de-escalating
@@ -365,13 +370,15 @@ function ABCDetail({ student, prefillBehaviour, defaultLocation, existingEntry, 
   const [studentC,  setStudentC]    = useState(existingEntry?.studentC || "");
   const [severity,  setSeverity]    = useState(existingEntry?.severity || 0);
   const [location,  setLocation]    = useState(existingEntry?.location || defaultLocation || "");
+  const [people,    setPeople]      = useState(Array.isArray(existingEntry?.people) ? existingEntry.people : []);
+  const [notes,     setNotes]       = useState(existingEntry?.notes || "");
   const [saved, setSaved]           = useState(false);
   const ts = useRef(existingEntry?.timestamp || new Date().toISOString());
 
   const canSave = severity > 0;
 
   function handleSave() {
-    onSave({ id: existingEntry?.id || Date.now(), timestamp: ts.current, antecedent, behaviour, teacherC, studentC, severity, location, notes: existingEntry?.notes || "" });
+    onSave({ id: existingEntry?.id || Date.now(), timestamp: ts.current, antecedent, behaviour, teacherC, studentC, severity, location, people, notes });
     setSaved(true);
     setTimeout(() => onBack(), 700);
   }
@@ -409,6 +416,23 @@ function ABCDetail({ student, prefillBehaviour, defaultLocation, existingEntry, 
 
       <div style={{ padding:16, maxWidth:600, margin:"0 auto" }}>
 
+        {/* Location */}
+        <div style={{ background:"#FFFFFF", borderRadius:12, padding:14, marginBottom:12 }}>
+          <div style={{ fontSize:11, color:"#4E6578", fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:8 }}>Location</div>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+            {(() => { const base = [defaultLocation || "Classroom", "Hallway", "Gym", "Washroom", "Library", "Cafeteria", "Outdoor / Yard", "Other"]; return location && !base.includes(location) ? [location, ...base] : base; })().map(loc => (
+              <button key={loc} onClick={() => setLocation(location===loc?"":loc)} style={{
+                padding:"8px 12px", borderRadius:9,
+                border: location===loc ? "2px solid #7ab8e0" : "1.5px solid #B7C2CC",
+                background: location===loc ? "#7ab8e022" : "#F4F6F8",
+                color: location===loc ? "#7ab8e0" : "#4B5966",
+                cursor:"pointer", fontSize:13, fontWeight: loc===defaultLocation ? 700 : 400,
+                transition:"all 0.15s"
+              }}>{loc}</button>
+            ))}
+          </div>
+        </div>
+
         {/* Severity */}
         <div style={{ background:"#FFFFFF", borderRadius:12, padding:14, marginBottom:12 }}>
           <div style={{ fontSize:11, color:"#8A6D0E", fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:8 }}>Severity *</div>
@@ -426,20 +450,22 @@ function ABCDetail({ student, prefillBehaviour, defaultLocation, existingEntry, 
           {severity > 0 && <div style={{ fontSize:12, color:SEV_COLOR[severity], marginTop:6, textAlign:"center", fontStyle:"italic" }}>{SEV_LABEL[severity]}</div>}
         </div>
 
-        {/* Location */}
+        {/* People Involved */}
         <div style={{ background:"#FFFFFF", borderRadius:12, padding:14, marginBottom:12 }}>
-          <div style={{ fontSize:11, color:"#4E6578", fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:8 }}>Location</div>
+          <div style={{ fontSize:11, color:"#4E6578", fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:8 }}>People Involved</div>
           <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
-            {[...(defaultLocation ? [defaultLocation] : []), "Classroom", "Hallway", "Gym", "Washroom", "Library", "Cafeteria", "Outdoor / Yard", "Other"].map(loc => (
-              <button key={loc} onClick={() => setLocation(location===loc?"":loc)} style={{
-                padding:"8px 12px", borderRadius:9,
-                border: location===loc ? "2px solid #7ab8e0" : "1.5px solid #B7C2CC",
-                background: location===loc ? "#7ab8e022" : "#F4F6F8",
-                color: location===loc ? "#7ab8e0" : "#4B5966",
-                cursor:"pointer", fontSize:13, fontWeight: loc===defaultLocation ? 700 : 400,
-                transition:"all 0.15s"
-              }}>{loc}</button>
-            ))}
+            {PEOPLE_OPTIONS.map(p => {
+              const on = people.includes(p);
+              return (
+                <button key={p} onClick={() => setPeople(prev => on ? prev.filter(x=>x!==p) : [...prev, p])} style={{
+                  padding:"8px 12px", borderRadius:9,
+                  border: on ? "2px solid #7ab8e0" : "1.5px solid #B7C2CC",
+                  background: on ? "#7ab8e022" : "#F4F6F8",
+                  color: on ? "#3B6D99" : "#4B5966",
+                  cursor:"pointer", fontSize:13, fontWeight: on ? 600 : 400, transition:"all 0.15s"
+                }}>{p}</button>
+              );
+            })}
           </div>
         </div>
 
@@ -511,6 +537,12 @@ function ABCDetail({ student, prefillBehaviour, defaultLocation, existingEntry, 
           </div>
         </div>
 
+        {/* Notes → prints in Comments column */}
+        <div style={{ background:"#FFFFFF", borderRadius:12, padding:14, marginBottom:12 }}>
+          <div style={{ fontSize:11, color:"#4E6578", fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:8 }}>Notes</div>
+          <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notes about this incident (prints in Comments)..." style={{ width:"100%", boxSizing:"border-box", padding:"10px 12px", borderRadius:8, border:"1px solid #B7C2CC", background:"#F4F6F8", color:"#1C2733", fontFamily:"'Inter',sans-serif", fontSize:13, resize:"vertical", minHeight:80, lineHeight:1.6 }} />
+        </div>
+
         <button onClick={handleSave} disabled={!canSave} style={{
           width:"100%", padding:16, marginBottom:32,
           background: saved ? "#2a6a4a" : canSave ? "#1F3D57" : "#c8c0b0",
@@ -550,7 +582,7 @@ function NotesScreen({ student, entries, onUpdateNote, onEditEntry, onBack }) {
               <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}>
                 <span style={{ fontSize:11, color:"#2C5170" }}>{formatShort(entry.timestamp)}</span>
                 <div style={{ display:"flex", gap:6, alignItems:"center" }}>
-                  <span style={{ fontSize:11, fontWeight:700, padding:"2px 8px", borderRadius:5, background:`${SEV_COLOR[entry.severity]}22`, color:SEV_COLOR[entry.severity] }}>S{entry.severity}</span>
+                  <SevBadge severity={entry.severity} />
                   <button onClick={() => onEditEntry(entry)} style={{ fontSize:11, color:"#2C5170", background:"none", border:"1px solid #B7C2CC", borderRadius:6, padding:"2px 8px", cursor:"pointer" }}><Icon name="edit" size={12} style={{marginRight:3}}/>Edit</button>
                 </div>
               </div>
@@ -603,7 +635,7 @@ function IncidentListScreen({ student, entries, settings, onSelectEntry, onNewIn
         )}
         {sorted.map((entry, idx) => {
           const beh = QUICK_BEHAVIOURS.find(b => b.id === entry.behaviour);
-          const hasDetail = entry.antecedent || (Array.isArray(entry.teacherC) ? entry.teacherC.length > 0 : entry.teacherC) || entry.studentC || entry.location;
+          const hasDetail = entry.antecedent || (Array.isArray(entry.teacherC) ? entry.teacherC.length > 0 : entry.teacherC) || entry.studentC || entry.location || (entry.people && entry.people.length) || entry.notes;
           return (
             <div key={entry.id} style={{ background:"#FFFFFF", borderRadius:12, padding:14, marginBottom:10, border:"1px solid #B7C2CC" }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:6 }}>
@@ -612,7 +644,7 @@ function IncidentListScreen({ student, entries, settings, onSelectEntry, onNewIn
                   {beh && <div style={{ fontSize:13, fontWeight:700, color:beh.color, display:"flex", alignItems:"center", gap:5 }}><Icon name={beh.icon} size={14} color={beh.color}/>{beh.label}</div>}
                 </div>
                 <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
-                  {entry.severity > 0 && <span style={{ fontSize:11, fontWeight:700, padding:"2px 8px", borderRadius:5, background:`${SEV_COLOR[entry.severity]}22`, color:SEV_COLOR[entry.severity] }}>S{entry.severity}</span>}
+                  <SevBadge severity={entry.severity} />
                   <span style={{ fontSize:10, color: hasDetail ? "#4a9a6a" : "#B7C2CC" }}>{hasDetail ? "✓ detail added" : "no detail yet"}</span>
                 </div>
               </div>
@@ -668,7 +700,8 @@ function InsightsScreen({ student, entries, onBack }) {
   const topTC  = topOf(tcCounts,  TEACHER_CONSEQUENCES);
   const topSC  = topOf(scCounts,  STUDENT_CONSEQUENCES);
 
-  const avgSev = (entries.reduce((s,e)=>s+e.severity,0)/entries.length).toFixed(1);
+  const rated = entries.filter(e => e.severity > 0);
+  const avgSev = rated.length ? (rated.reduce((s,e)=>s+e.severity,0)/rated.length).toFixed(1) : "—";
   const dayNames = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   const dayCounts = entries.reduce((acc,e) => { const d=new Date(e.timestamp).getDay(); acc[d]=(acc[d]||0)+1; return acc; },{});
   const peakDay = Object.entries(dayCounts).sort((a,b)=>b[1]-a[1])[0];
@@ -782,27 +815,29 @@ function StudentScreen({ student, entries, settings, onQuickLog, onFullLog, onUp
   const [overlay, setOverlay]     = useState(null);
   const [prefillBeh, setPrefillBeh] = useState("");
   const [editEntry, setEditEntry] = useState(null);
+  const [returnTo, setReturnTo]   = useState("incidentlist");
+  function openEdit(e, from) { setEditEntry(e); setReturnTo(from); setView("detail"); }
 
   // depth 1 = student menu, depth 2 = sub-screen
   const depth = (view !== "menu" || overlay) ? 2 : 1;
   useAndroidBack(depth, () => {
     if (overlay) { setOverlay(null); return; }
-    if (view === "detail" && editEntry) { setView("incidentlist"); setEditEntry(null); return; }
+    if (view === "detail") { setView(returnTo); setEditEntry(null); return; }
     if (view !== "menu") { setView("menu"); setEditEntry(null); }
     else onBack();
   });
 
   function handleQuickTap(behId) {
     const ts = new Date().toISOString();
-    onQuickLog({ id:Date.now(), timestamp:ts, antecedent:"", behaviour:behId, teacherC:[], studentC:"", severity:3, notes:"" });
+    onQuickLog({ id:Date.now(), timestamp:ts, antecedent:"", behaviour:behId, teacherC:[], studentC:"", severity:0, people:[], notes:"" });
     if (settings.showOverlay === true) setOverlay(behId);
   }
 
-  if (view === "detail") return <ABCDetail student={student} prefillBehaviour={prefillBeh} defaultLocation={settings.location} existingEntry={editEntry} onSave={e => { editEntry ? onUpdateEntry(e) : onFullLog(e); }} onBack={() => { setView("incidentlist"); setEditEntry(null); }} />;
-  if (view === "incidentlist") return <IncidentListScreen student={student} entries={entries} settings={settings} onSelectEntry={e => { setEditEntry(e); setView("detail"); }} onNewIncident={() => { setEditEntry(null); setPrefillBeh(""); setView("detail"); }} onBack={() => setView("menu")} />;
-  if (view === "notes")   return <NotesScreen student={student} entries={entries} onUpdateNote={onUpdateNote} onEditEntry={e => { setEditEntry(e); setView("detail"); }} onBack={() => setView("menu")} />;
+  if (view === "detail") return <ABCDetail student={student} prefillBehaviour={prefillBeh} defaultLocation={settings.location} existingEntry={editEntry} onSave={e => { editEntry ? onUpdateEntry(e) : onFullLog(e); }} onBack={() => { setView(returnTo); setEditEntry(null); }} />;
+  if (view === "incidentlist") return <IncidentListScreen student={student} entries={entries} settings={settings} onSelectEntry={e => openEdit(e, "incidentlist")} onNewIncident={() => { setEditEntry(null); setPrefillBeh(""); setReturnTo("incidentlist"); setView("detail"); }} onBack={() => setView("menu")} />;
+  if (view === "notes")   return <NotesScreen student={student} entries={entries} onUpdateNote={onUpdateNote} onEditEntry={e => openEdit(e, "notes")} onBack={() => setView("menu")} />;
   if (view === "insights") return <InsightsScreen student={student} entries={entries} onBack={() => setView("menu")} />;
-  if (view === "tdsb")   return <TDSBExportScreen student={student} entries={entries} settings={settings} onBack={() => setView("menu")} />;
+  if (view === "tdsb")   return <TDSBExportScreen student={student} entries={entries} settings={settings} onEditEntry={e => openEdit(e, "tdsb")} onBack={() => setView("menu")} />;
 
   const recent = [...entries].sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp)).slice(0,3);
 
@@ -904,7 +939,7 @@ function StudentScreen({ student, entries, settings, onQuickLog, onFullLog, onUp
                 <div key={entry.id} style={{ background:"#FFFFFF", borderRadius:10, padding:12, marginBottom:8, border:"1px solid #B7C2CC" }}>
                   <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
                     <span style={{ fontSize:11, color:"#2C5170" }}>{formatShort(entry.timestamp)}</span>
-                    <span style={{ fontSize:11, fontWeight:700, padding:"1px 7px", borderRadius:5, background:`${SEV_COLOR[entry.severity]}22`, color:SEV_COLOR[entry.severity] }}>S{entry.severity}</span>
+                    <SevBadge severity={entry.severity} pad="1px 7px" />
                   </div>
                   {beh && <div style={{ fontSize:12, color:beh.color, display:"flex", alignItems:"center", gap:4 }}><Icon name={beh.icon} size={13} color={beh.color}/>{beh.label}</div>}
                 </div>
@@ -1028,7 +1063,7 @@ function SettingsScreen({ settings, onSave, onBack, allData }) {
 }
 
 // ── TDSB EXPORT SCREEN ────────────────────────────────────────────────────────
-function TDSBExportScreen({ student, entries, settings, onBack }) {
+function TDSBExportScreen({ student, entries, settings, onEditEntry, onBack }) {
   const antLabel = id => { const a = ANTECEDENTS.find(x=>x.id===id); return a ? a.label : id; };
   const behLabel = id => { const b = QUICK_BEHAVIOURS.find(x=>x.id===id); return b ? b.label : id; };
   const tcLabel  = id => { const t = TEACHER_CONSEQUENCES.find(x=>x.id===id); return t ? t.label : id; };
@@ -1044,7 +1079,7 @@ function TDSBExportScreen({ student, entries, settings, onBack }) {
     return parts.join(" / ") || "—";
   }
 
-  const rows = entries.length > 0 ? entries : [];
+  const rows = [...entries].sort((a,b) => new Date(a.timestamp)-new Date(b.timestamp));
 
   function handlePrint() { window.print(); }
 
@@ -1056,6 +1091,7 @@ function TDSBExportScreen({ student, entries, settings, onBack }) {
           body { background:white; }
           .print-page { padding:10mm; }
         }
+        .tap-row:active td { background:#7ab8e022; }
       `}</style>
       <div className="no-print" style={{ background:"#16283B", padding:"14px 16px 12px", position:"sticky", top:0, zIndex:10 }}>
         <div style={{ maxWidth:700, margin:"0 auto", display:"flex", alignItems:"center", gap:12 }}>
@@ -1088,6 +1124,8 @@ function TDSBExportScreen({ student, entries, settings, onBack }) {
           </div>
         </div>
 
+        <div className="no-print" style={{ fontSize:11, color:"#4B5966", fontStyle:"italic", marginBottom:6 }}>Tap any row to edit that incident.</div>
+
         {/* Table */}
         <div style={{ overflowX:"auto" }}>
           <table style={{ width:"100%", borderCollapse:"collapse", fontSize:11, background:"white" }}>
@@ -1102,10 +1140,10 @@ function TDSBExportScreen({ student, entries, settings, onBack }) {
               {rows.length === 0 ? (
                 <tr><td colSpan={7} style={{ padding:20, textAlign:"center", color:"#4B5966", fontStyle:"italic" }}>No incidents logged yet.</td></tr>
               ) : rows.map((e, i) => (
-                <tr key={e.id} style={{ background: i%2===0 ? "#F4F6F8" : "white" }}>
+                <tr key={e.id} className="tap-row" onClick={() => onEditEntry && onEditEntry(e)} style={{ background: i%2===0 ? "#F4F6F8" : "white", cursor:"pointer" }}>
                   <td style={{ padding:"7px 8px", border:"1px solid #DDD5C4", whiteSpace:"nowrap" }}>{new Date(e.timestamp).toLocaleString("en-CA",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit",weekday:"short"})}</td>
                   <td style={{ padding:"7px 8px", border:"1px solid #DDD5C4" }}>{e.location || settings.location || "—"}</td>
-                  <td style={{ padding:"7px 8px", border:"1px solid #DDD5C4" }}>{settings.teacherName || "—"}</td>
+                  <td style={{ padding:"7px 8px", border:"1px solid #DDD5C4" }}>{(e.people && e.people.length) ? e.people.join(", ") : "—"}</td>
                   <td style={{ padding:"7px 8px", border:"1px solid #DDD5C4" }}>{antLabel(e.antecedent) || "—"}</td>
                   <td style={{ padding:"7px 8px", border:"1px solid #DDD5C4" }}>{behLabel(e.behaviour) || "—"}</td>
                   <td style={{ padding:"7px 8px", border:"1px solid #DDD5C4" }}>{buildConsequence(e)}</td>
@@ -1231,7 +1269,7 @@ function App() {
             <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Add a student</strong> using initials or a first name, whatever fits your record-keeping comfort level.</p>
             <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Tap a behaviour button</strong> right after an incident — that's the whole fast path. Roughly ten seconds. Each tap creates a numbered, timestamped incident in that student's record.</p>
             <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Support Requested</strong> is a quick-log button too — tap it the moment you call for help, no need to open Full ABC Detail.</p>
-            <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Full ABC Detail</strong> is for when you have a moment — lunch, prep, end of day. Open it to see your logged incidents for that student, each showing the time and behaviour. Tap any incident to add antecedent, consequence, location, severity, and notes.</p>
+            <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Full ABC Detail</strong> is for when you have a moment — lunch, prep, end of day. Open it to see your logged incidents for that student, each showing the time and behaviour. Tap any incident to add antecedent, consequence, location, people involved, severity, and notes.</p>
             <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Strategy scripts</strong> are off by default to keep the fast path clean. Turn them on in Settings under Strategy Overlay. When on, tapping any behaviour button brings up in-the-moment scripts and non-verbal strategies specific to that behaviour. Tap the back button to dismiss and return to the student screen.</p>
             <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Insights</strong> build up the more you log. The Spec Ed Meeting Summary at the bottom is designed to go straight to your Team meeting. Export the TDSB ABC Chart when you're ready to bring documentation.</p>
             <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733" }}><strong>Back up your data</strong> regularly in Settings → Data Backup → Export and Share Backup. Your data lives on this device — a browser cache clear will wipe it. The backup creates a file you can share to Google Drive, email to yourself, or save anywhere. Restore from that file anytime.</p>
