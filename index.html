@@ -72,7 +72,7 @@ function useAndroidBack(depth, onBack) {
   }, [onBack]);
 }
 
-const APP_VERSION = "v22";
+const APP_VERSION = "v22b";
 const STORAGE_KEY = "calmam-classroom-v2";
 const DEFAULT_SETTINGS = { teacherName: "", school: "", location: "", showOverlay: false };
 function load() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch { return {}; } }
@@ -379,12 +379,14 @@ function ABCDetail({ student, prefillBehaviour, defaultLocation, existingEntry, 
   });
   const [notes,     setNotes]       = useState(existingEntry?.notes || "");
   const [saved, setSaved]           = useState(false);
-  const ts = useRef(existingEntry?.timestamp || new Date().toISOString());
+  const [when, setWhen] = useState(existingEntry?.timestamp || new Date().toISOString());
+  // datetime-local wants "YYYY-MM-DDTHH:MM" in local time
+  const toLocalInput = iso => { const d = new Date(iso); const p = n => String(n).padStart(2,"0"); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
 
   const canSave = true; // every field is optional — nothing blocks Save
 
   function handleSave() {
-    onSave({ id: existingEntry?.id || Date.now(), timestamp: ts.current, antecedent, behaviour, teacherC, studentC, severity, location, people, peopleSet:true, notes });
+    onSave({ id: existingEntry?.id || Date.now(), timestamp: when, antecedent, behaviour, teacherC, studentC, severity, location, people, peopleSet:true, notes });
     setSaved(true);
     setTimeout(() => onBack(), 700);
   }
@@ -415,12 +417,20 @@ function ABCDetail({ student, prefillBehaviour, defaultLocation, existingEntry, 
           <button onClick={onBack} style={{ background:"none", border:"1px solid #BFD4E3", color:"#F4F6F8", borderRadius:8, padding:"6px 12px", cursor:"pointer", fontSize:13 }}><Icon name="back" size={13} style={{marginRight:4}}/>Back</button>
           <div>
             <div style={{ fontSize:17, fontFamily:"'Inter',sans-serif", color:"#F4F6F8" }}>{student.name} — {editing ? "Edit Incident" : "Detail"}</div>
-            <div style={{ fontSize:11, color:"#BFD4E3" }}>{formatDate(ts.current)}</div>
+            <div style={{ fontSize:11, color:"#BFD4E3" }}>{formatDate(when)}</div>
           </div>
         </div>
       </div>
 
       <div style={{ padding:16, maxWidth:600, margin:"0 auto" }}>
+
+        {/* When — pre-filled; only touched when backfilling a missed incident */}
+        <div style={{ background:"#FFFFFF", borderRadius:12, padding:"10px 14px", marginBottom:12, display:"flex", alignItems:"center", justifyContent:"space-between", gap:10 }}>
+          <div style={{ fontSize:11, color:"#4E6578", fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase" }}>When</div>
+          <input type="datetime-local" value={toLocalInput(when)} max={toLocalInput(new Date().toISOString())}
+            onChange={e => { if (e.target.value) setWhen(new Date(e.target.value).toISOString()); }}
+            style={{ padding:"7px 10px", borderRadius:8, border:"1px solid #B7C2CC", background:"#F4F6F8", color:"#1C2733", fontFamily:"'Inter',sans-serif", fontSize:14 }} />
+        </div>
 
         {/* Location */}
         <div style={{ background:"#FFFFFF", borderRadius:12, padding:14, marginBottom:12 }}>
@@ -1327,7 +1337,7 @@ function App() {
             <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Add a student</strong> using initials or a first name, whatever fits your record-keeping comfort level.</p>
             <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Tap a behaviour button</strong> right after an incident — that's the whole fast path. Roughly ten seconds. A severity bar pops up for a few seconds afterward; tap a number or ignore it. Each tap creates a numbered, timestamped incident in that student's record.</p>
             <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Support Requested</strong> is a quick-log button too — tap it the moment you call for help, no need to open Full ABC Detail.</p>
-            <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Full ABC Detail</strong> is for when you have a moment — lunch, prep, end of day. Open it to see your logged incidents for that student, each showing the time and behaviour. Tap any incident to add antecedent, consequence, location, people involved, severity, and notes. Every field is optional.</p>
+            <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Full ABC Detail</strong> is for when you have a moment — lunch, prep, end of day. Open it to see your logged incidents for that student, each showing the time and behaviour. Tap any incident to add antecedent, consequence, location, people involved, severity, and notes. Every field is optional. If you missed a quick log, use + New incident and set the real time under When.</p>
             <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Strategy scripts</strong> are off by default to keep the fast path clean. Turn them on in Settings under Strategy Overlay. When on, tapping any behaviour button brings up in-the-moment scripts and non-verbal strategies specific to that behaviour. Tap the back button to dismiss and return to the student screen.</p>
             <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Insights</strong> build up the more you log. The Spec Ed Meeting Summary at the bottom is designed to go straight to your Team meeting. Export the TDSB ABC Chart when you're ready to bring documentation.</p>
             <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733" }}><strong>Back up your data</strong> regularly in Settings → Data Backup → Export and Share Backup. Your data lives on this device — a browser cache clear will wipe it. The backup creates a file you can share to Google Drive, email to yourself, or save anywhere. Restore from that file anytime.</p>
