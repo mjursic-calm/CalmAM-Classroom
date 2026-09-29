@@ -1,6 +1,6 @@
 {
-  "name": "CalmAM ABC",
-  "short_name": "calmABC",
+  "name": "CalmER ABC",
+  "short_name": "CalmER ABC",
   "description": "Classroom behaviour tracking tool for teachers",
   "start_url": "/CalmAM-Classroom/",
   "display": "standalone",
