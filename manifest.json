@@ -9,7 +9,7 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "https://mjursic-calm.github.io/CalmAM-Classroom/calm-icon-abc.png",
+      "src": "https://mjursic-calm.github.io/CalmAM-Classroom/("calm-icon-abc.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
