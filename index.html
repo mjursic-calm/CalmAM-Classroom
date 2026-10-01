@@ -72,7 +72,7 @@ function useAndroidBack(depth, onBack) {
   }, [onBack]);
 }
 
-const APP_VERSION = "v22b";
+const APP_VERSION = "v23";
 const STORAGE_KEY = "calmam-classroom-v2";
 const DEFAULT_SETTINGS = { teacherName: "", school: "", location: "", showOverlay: false };
 function load() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch { return {}; } }
@@ -870,7 +870,7 @@ function StudentScreen({ student, entries, settings, onQuickLog, onFullLog, onUp
   if (view === "incidentlist") return <IncidentListScreen student={student} entries={entries} settings={settings} onSelectEntry={e => openEdit(e, "incidentlist")} onNewIncident={() => { setEditEntry(null); setPrefillBeh(""); setReturnTo("incidentlist"); setView("detail"); }} onBack={() => setView("menu")} />;
   if (view === "notes")   return <NotesScreen student={student} entries={entries} onUpdateNote={onUpdateNote} onEditEntry={e => openEdit(e, "notes")} onBack={() => setView("menu")} />;
   if (view === "insights") return <InsightsScreen student={student} entries={entries} onBack={() => setView("menu")} />;
-  if (view === "tdsb")   return <TDSBExportScreen student={student} entries={entries} settings={settings} onEditEntry={e => openEdit(e, "tdsb")} onBack={() => setView("menu")} />;
+  if (view === "export") return <ChartExportScreen student={student} entries={entries} settings={settings} onEditEntry={e => openEdit(e, "export")} onBack={() => setView("menu")} />;
 
   const recent = [...entries].sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp)).slice(0,3);
 
@@ -954,13 +954,13 @@ function StudentScreen({ student, entries, settings, onQuickLog, onFullLog, onUp
           <button onClick={() => setView("notes")} style={{ padding:"13px", background:"#FFFFFF", color:"#4B5966", border:"1px solid #B7C2CC", borderRadius:12, cursor:"pointer", fontSize:13 }}><Icon name="notes" size={14} style={{marginRight:5}}/>Notes</button>
           <button onClick={() => setView("insights")} style={{ padding:"13px", background:"#FFFFFF", color:"#4B5966", border:"1px solid #B7C2CC", borderRadius:12, cursor:"pointer", fontSize:13 }}><Icon name="chart" size={14} style={{marginRight:5}}/>Insights</button>
         </div>
-        <button onClick={() => setView("tdsb")} style={{
+        <button onClick={() => setView("export")} style={{
           width:"100%", padding:"11px", marginBottom:14,
           background:"#1F3D57",
           color:"#F4F6F8", border:"none", borderRadius:12,
           cursor:"pointer", fontSize:13, fontWeight:600,
           letterSpacing:"0.03em"
-        }}><Icon name="clipboard" size={14} style={{marginRight:6}}/>Export TDSB ABC Chart</button>
+        }}><Icon name="clipboard" size={14} style={{marginRight:6}}/>Export ABC Chart</button>
 
         {/* Recent */}
         {recent.length > 0 && (
@@ -1118,7 +1118,7 @@ function SettingsScreen({ settings, onSave, onBack, allData }) {
         </div>
 
         <div style={{ fontSize:12, color:"#4B5966", fontStyle:"italic", textAlign:"center" }}>
-          These details pre-fill the TDSB ABC Data Recording Chart export.
+          These details pre-fill the header of the exported ABC chart.
           <div style={{ marginTop:8, fontStyle:"normal", color:"#8B98A5" }}>CalmER ABC {APP_VERSION}</div>
         </div>
       </div>
@@ -1126,8 +1126,8 @@ function SettingsScreen({ settings, onSave, onBack, allData }) {
   );
 }
 
-// ── TDSB EXPORT SCREEN ────────────────────────────────────────────────────────
-function TDSBExportScreen({ student, entries, settings, onEditEntry, onBack }) {
+// ── CHART EXPORT SCREEN ────────────────────────────────────────────────────────
+function ChartExportScreen({ student, entries, settings, onEditEntry, onBack }) {
   const antLabel = id => { const a = ANTECEDENTS.find(x=>x.id===id); return a ? a.label : id; };
   const behLabel = id => { const b = QUICK_BEHAVIOURS.find(x=>x.id===id); return b ? b.label : id; };
   const tcLabel  = id => { const t = TEACHER_CONSEQUENCES.find(x=>x.id===id); return t ? t.label : id; };
@@ -1160,7 +1160,7 @@ function TDSBExportScreen({ student, entries, settings, onEditEntry, onBack }) {
       <div className="no-print" style={{ background:"#16283B", padding:"14px 16px 12px", position:"sticky", top:0, zIndex:10 }}>
         <div style={{ maxWidth:700, margin:"0 auto", display:"flex", alignItems:"center", gap:12 }}>
           <button onClick={onBack} style={{ background:"none", border:"1px solid #BFD4E3", color:"#F4F6F8", borderRadius:8, padding:"6px 12px", cursor:"pointer", fontSize:13 }}><Icon name="back" size={13} style={{marginRight:4}}/>Back</button>
-          <div style={{ fontSize:18, fontFamily:"'Inter',sans-serif", color:"#F4F6F8", fontWeight:600, flex:1 }}>TDSB ABC Export</div>
+          <div style={{ fontSize:18, fontFamily:"'Inter',sans-serif", color:"#F4F6F8", fontWeight:600, flex:1 }}>ABC Chart Export</div>
           <button onClick={handlePrint} style={{ background:"#4a9a6a", border:"none", color:"#ffffff", borderRadius:8, padding:"8px 16px", cursor:"pointer", fontSize:13, fontWeight:700 }}><Icon name="printer" size={14} style={{marginRight:5}}/>Print / Save PDF</button>
         </div>
       </div>
@@ -1169,17 +1169,16 @@ function TDSBExportScreen({ student, entries, settings, onEditEntry, onBack }) {
         {/* Header */}
         <div style={{ textAlign:"center", marginBottom:12 }}>
           <div style={{ fontSize:15, fontWeight:700, color:"#1C2733" }}>ABC Data Recording Chart</div>
-          <div style={{ fontSize:11, color:"#4B5966" }}>Toronto District School Board · Behaviour Analysis Tool (Form 699Kii)</div>
         </div>
 
         {/* Student / Staff row */}
         <div style={{ display:"flex", gap:16, marginBottom:10 }}>
           <div style={{ flex:1, background:"white", border:"1px solid #B7C2CC", borderRadius:6, padding:"8px 10px" }}>
-            <div style={{ fontSize:10, color:"#4B5966", marginBottom:2 }}>STUDENT FIRST NAME / LAST INITIAL</div>
+            <div style={{ fontSize:10, color:"#4B5966", marginBottom:2 }}>STUDENT</div>
             <div style={{ fontSize:13, fontWeight:600, color:"#1C2733" }}>{student.name}</div>
           </div>
           <div style={{ flex:1, background:"white", border:"1px solid #B7C2CC", borderRadius:6, padding:"8px 10px" }}>
-            <div style={{ fontSize:10, color:"#4B5966", marginBottom:2 }}>STAFF NAME</div>
+            <div style={{ fontSize:10, color:"#4B5966", marginBottom:2 }}>STAFF</div>
             <div style={{ fontSize:13, fontWeight:600, color:"#1C2733" }}>{settings.teacherName || "—"}</div>
           </div>
           <div style={{ flex:1, background:"white", border:"1px solid #B7C2CC", borderRadius:6, padding:"8px 10px" }}>
@@ -1195,7 +1194,7 @@ function TDSBExportScreen({ student, entries, settings, onEditEntry, onBack }) {
           <table style={{ width:"100%", borderCollapse:"collapse", fontSize:11, background:"white" }}>
             <thead>
               <tr style={{ background:"#1F3D57", color:"white" }}>
-                {["Time","Location","People/Person Involved","Antecedent","Behaviour","Consequence","Comments"].map(h => (
+                {["Date / Time","Location","People Involved","Antecedent","Behaviour","Consequence","Comments"].map(h => (
                   <th key={h} style={{ padding:"7px 8px", border:"1px solid #B7C2CC", textAlign:"left", fontWeight:600, whiteSpace:"nowrap" }}>{h}</th>
                 ))}
               </tr>
@@ -1227,7 +1226,7 @@ function TDSBExportScreen({ student, entries, settings, onEditEntry, onBack }) {
         </div>
 
         <div style={{ fontSize:10, color:"#4B5966", marginTop:10, textAlign:"right" }}>
-          Updated May 16, 2022 · Generated by CalmER ABC © Michael Jursic 2026
+          Generated by CalmER ABC © Michael Jursic 2026
         </div>
       </div>
     </div>
@@ -1339,7 +1338,7 @@ function App() {
             <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Support Requested</strong> is a quick-log button too — tap it the moment you call for help, no need to open Full ABC Detail.</p>
             <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Full ABC Detail</strong> is for when you have a moment — lunch, prep, end of day. Open it to see your logged incidents for that student, each showing the time and behaviour. Tap any incident to add antecedent, consequence, location, people involved, severity, and notes. Every field is optional. If you missed a quick log, use + New incident and set the real time under When.</p>
             <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Strategy scripts</strong> are off by default to keep the fast path clean. Turn them on in Settings under Strategy Overlay. When on, tapping any behaviour button brings up in-the-moment scripts and non-verbal strategies specific to that behaviour. Tap the back button to dismiss and return to the student screen.</p>
-            <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Insights</strong> build up the more you log. The Spec Ed Meeting Summary at the bottom is designed to go straight to your Team meeting. Export the TDSB ABC Chart when you're ready to bring documentation.</p>
+            <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Insights</strong> build up the more you log. The Spec Ed Meeting Summary at the bottom is designed to go straight to your Team meeting. Export the ABC Chart when you're ready to bring documentation.</p>
             <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733" }}><strong>Back up your data</strong> regularly in Settings → Data Backup → Export and Share Backup. Your data lives on this device — a browser cache clear will wipe it. The backup creates a file you can share to Google Drive, email to yourself, or save anywhere. Restore from that file anytime.</p>
           </div>
         )}
