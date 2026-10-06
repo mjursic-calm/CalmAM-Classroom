@@ -72,11 +72,16 @@ function useAndroidBack(depth, onBack) {
   }, [onBack]);
 }
 
-const APP_VERSION = "v23";
+const APP_VERSION = "v24";
 const STORAGE_KEY = "calmam-classroom-v2";
 const DEFAULT_SETTINGS = { teacherName: "", school: "", location: "", showOverlay: false };
 function load() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch { return {}; } }
 function save(d) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); } catch {} }
+
+// Privacy reminder shown above any free-text entry
+function PrivacyHint({ text = "Use initials or a code only. No full names or student ID numbers.", style = {} }) {
+  return <div style={{ fontSize:11, color:"#8F5A0A", fontStyle:"italic", marginBottom:6, lineHeight:1.4, ...style }}>{text}</div>;
+}
 
 // ── COLOURS ───────────────────────────────────────────────────────────────────
 const SEV_COLOR  = ["","#4a9a6a","#8ab84a","#e0c84a","#e0883a","#c03030"];
@@ -556,6 +561,7 @@ function ABCDetail({ student, prefillBehaviour, defaultLocation, existingEntry, 
         {/* Notes → prints in Comments column */}
         <div style={{ background:"#FFFFFF", borderRadius:12, padding:14, marginBottom:12 }}>
           <div style={{ fontSize:11, color:"#4E6578", fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:8 }}>Notes</div>
+          <PrivacyHint />
           <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notes about this incident (prints in Comments)..." style={{ width:"100%", boxSizing:"border-box", padding:"10px 12px", borderRadius:8, border:"1px solid #B7C2CC", background:"#F4F6F8", color:"#1C2733", fontFamily:"'Inter',sans-serif", fontSize:13, resize:"vertical", minHeight:80, lineHeight:1.6 }} />
         </div>
 
@@ -605,6 +611,7 @@ function NotesScreen({ student, entries, onUpdateNote, onEditEntry, onBack }) {
               {entry.location && <div style={{ fontSize:11, color:"#4a6a7a", marginBottom:4 }}><Icon name="pin" size={11} style={{marginRight:3}}/>{entry.location}</div>}
               {editId === entry.id ? (
                 <div>
+                  <PrivacyHint />
                   <textarea value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="Notes about this incident..." style={{ width:"100%", padding:"10px 12px", borderRadius:8, border:"1px solid #2C5170", background:"#F4F6F8", color:"#1C2733", fontFamily:"'Inter',sans-serif", fontSize:13, resize:"vertical", minHeight:80, lineHeight:1.6 }} />
                   <div style={{ display:"flex", gap:8, marginTop:8 }}>
                     <button onClick={() => { onUpdateNote(student.id, entry.id, noteText); setEditId(null); }} style={{ flex:1, padding:8, borderRadius:8, background:"#1F3D57", color:"#ffffff", border:"none", cursor:"pointer", fontSize:13 }}>Save</button>
@@ -1105,7 +1112,7 @@ function SettingsScreen({ settings, onSave, onBack, allData }) {
         {/* Backup & Restore */}
         <div style={{ background:"#FFFFFF", borderRadius:12, padding:16, marginBottom:14 }}>
           <div style={{ fontSize:13, color:"#2C5170", fontWeight:600, marginBottom:6 }}>Data Backup</div>
-          <div style={{ fontSize:12, color:"#4B5966", marginBottom:12, lineHeight:1.6 }}>Your data is stored on this device. Back it up regularly so you don't lose it if you clear your browser cache.</div>
+          <div style={{ fontSize:12, color:"#4B5966", marginBottom:12, lineHeight:1.6 }}>Your data is stored on this device. Back it up regularly so you don't lose it if you clear your browser cache. A backup file contains everything you entered, so store and share it securely.</div>
           <button onClick={handleBackup} style={{ width:"100%", padding:12, background:"#4a9a6a", color:"#ffffff", border:"none", borderRadius:8, cursor:"pointer", fontSize:14, fontWeight:700, marginBottom:10 }}>
             Export & Share Backup
           </button>
@@ -1187,7 +1194,8 @@ function ChartExportScreen({ student, entries, settings, onEditEntry, onBack }) 
           </div>
         </div>
 
-        <div className="no-print" style={{ fontSize:11, color:"#4B5966", fontStyle:"italic", marginBottom:6 }}>Tap any row to edit that incident.</div>
+        <div className="no-print" style={{ fontSize:11, color:"#4B5966", fontStyle:"italic", marginBottom:4 }}>Tap any row to edit that incident.</div>
+        <div className="no-print" style={{ fontSize:11, color:"#8F5A0A", fontStyle:"italic", marginBottom:6 }}>Charts contain exactly what you entered. Store and share them securely.</div>
 
         {/* Table */}
         <div style={{ overflowX:"auto" }}>
@@ -1333,7 +1341,7 @@ function App() {
               <div style={{ fontSize:14, fontWeight:600, color:"#2C5170" }}>Getting Started</div>
               <button onClick={() => setShowHelp(false)} style={{ background:"none", border:"none", color:"#4B5966", fontSize:13, cursor:"pointer" }}>Close</button>
             </div>
-            <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Add a student</strong> using initials or a first name, whatever fits your record-keeping comfort level.</p>
+            <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Add a student</strong> using initials or a code only. Please don't enter full names or student ID numbers.</p>
             <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Tap a behaviour button</strong> right after an incident — that's the whole fast path. Roughly ten seconds. A severity bar pops up for a few seconds afterward; tap a number or ignore it. Each tap creates a numbered, timestamped incident in that student's record.</p>
             <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Support Requested</strong> is a quick-log button too — tap it the moment you call for help, no need to open Full ABC Detail.</p>
             <p style={{ fontSize:13, lineHeight:1.7, color:"#1C2733", marginBottom:10 }}><strong>Full ABC Detail</strong> is for when you have a moment — lunch, prep, end of day. Open it to see your logged incidents for that student, each showing the time and behaviour. Tap any incident to add antecedent, consequence, location, people involved, severity, and notes. Every field is optional. If you missed a quick log, use + New incident and set the real time under When.</p>
@@ -1371,10 +1379,11 @@ function App() {
 
         {adding ? (
           <div style={{ background:"#FFFFFF", borderRadius:12, padding:16, marginBottom:14 }}>
-            <div style={{ fontSize:13, color:"#2C5170", marginBottom:10, fontWeight:600 }}>Add Student</div>
+            <div style={{ fontSize:13, color:"#2C5170", marginBottom:6, fontWeight:600 }}>Add Student</div>
+            <PrivacyHint style={{ marginBottom:10 }} />
             <input autoFocus value={newName} onChange={e=>setNewName(e.target.value)}
               onKeyDown={e=>{if(e.key==="Enter")addStudent();if(e.key==="Escape")setAdding(false);}}
-              placeholder="Student name or initials"
+              placeholder="Student initials or code (e.g. J.S. or S-04)"
               style={{ width:"100%", padding:"10px 12px", borderRadius:8, border:"1px solid #2C5170", background:"#F4F6F8", color:"#1C2733", fontFamily:"'Inter',sans-serif", fontSize:15, marginBottom:10 }}
             />
             <div style={{ display:"flex", gap:8 }}>
