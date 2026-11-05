@@ -1094,7 +1094,7 @@ function SettingsScreen({ settings, onSave, onBack, allData }) {
               <div style={{ fontSize:13, fontWeight:600, color:"#1C2733" }}>Strategy Overlay</div>
               <div style={{ fontSize:11, color:"#4B5966", marginTop:2 }}>Show scripts after quick-tap behaviour</div>
             </div>
-            <button onClick={() => setForm(f => ({...f, showOverlay: !f.showOverlay}))} style={{
+            <button onClick={() => { const next = { ...form, showOverlay: !form.showOverlay }; setForm(next); onSave(next); }} style={{
               width:48, height:26, borderRadius:13, border:"none", cursor:"pointer",
               background: form.showOverlay ? "#2C5170" : "#B7C2CC",
               position:"relative", transition:"background 0.2s"
